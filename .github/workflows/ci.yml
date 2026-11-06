@@ -21,3 +21,6 @@ jobs:
 
       - name: 匿名评审合规扫描
         run: node tools/check-anonymity.js
+
+      - name: 匿名同步服务自检（#I10 / #I11）
+        run: node services/api/smoke.js
