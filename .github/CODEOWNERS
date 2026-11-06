@@ -2,30 +2,30 @@
 #
 # 本仓库不设审批门禁，此文件仅作队内分工备忘，规则行全部保持注释。
 # GitHub CODEOWNERS 只认 @账号；若以后要启用「自动加 reviewer」，
-# 把下面的姓名换成对应 GitHub 账号、删掉行首 "# " 即可（中文姓名不是合法 owner）。
+# 把下面的姓氏换成对应 GitHub 账号、删掉行首 "# " 即可（中文不是合法 owner）。
 #
-# 成员：付嘉一（队长）/ 姜雅文 / 曹蕾 / 秦庆泽
+# 成员：付（队长）/ 姜 / 曹 / 秦
 # 技术标识沿用字母代号，不写成中文：
-#   lead = 付嘉一, a = 姜雅文, b = 曹蕾, c = 秦庆泽
+#   lead = 付, a = 姜, b = 曹, c = 秦
 #   —— 用于 owner:a 这类 Issue 标签、feat/a-xxx 这类分支名。
 #
-# ⚠️ 姓名仅用于私有仓库内部对齐。初赛提交 / 演示 / 公开前，
-#    按 docs/04-参赛合规.md 全仓替换并清理 git 历史。
+# ⚠️ 本仓库已 public，此处仅用姓氏单字做分工标识，禁止写成员全名。
+#    合规口径见 docs/04-参赛合规.md。
 #
 # 语法：每行一个路径模式 + 一个或多个 owner；后出现的规则覆盖前面的。
 #
-# *                              付嘉一
-# /src/core/                     曹蕾
-# /src/model/                    姜雅文
-# /src/model/dsl.js              曹蕾 + 姜雅文                 # 曹蕾主，姜雅文协同
-# /src/viz/                      付嘉一
-# /src/ui/                       付嘉一
-# /index.html                    付嘉一 + 曹蕾
-# /assets/                       付嘉一
-# /src/learning/data.js          秦庆泽
-# /src/learning/graph.js         付嘉一 + 秦庆泽
-# /services/api/                 秦庆泽
-# /tools/                        曹蕾 + 秦庆泽
-# /.github/                      付嘉一 + 秦庆泽
-# /docs/                         付嘉一 + 秦庆泽
-# /contracts/                    付嘉一 + 姜雅文 + 曹蕾 + 秦庆泽   # 全员共管
+# *                              付
+# /src/core/                     曹
+# /src/model/                    姜
+# /src/model/dsl.js              曹 + 姜                 # 曹主，姜协同
+# /src/viz/                      付
+# /src/ui/                       付
+# /index.html                    付 + 曹
+# /assets/                       付
+# /src/learning/data.js          秦
+# /src/learning/graph.js         付 + 秦
+# /services/api/                 秦
+# /tools/                        曹 + 秦
+# /.github/                      付 + 秦
+# /docs/                         付 + 秦
+# /contracts/                    付 + 姜 + 曹 + 秦   # 全员共管

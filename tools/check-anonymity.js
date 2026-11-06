@@ -93,7 +93,7 @@ if (hits.length) {
   process.exit(1);
 }
 console.log('PASS：未发现邮箱 / 手机号 / 身份证号 / 本机敏感词。');
-console.log('INFO：私有仓库内以队内姓名标注分工；对外提交 / 演示 / 公开前须按 docs/04 全仓替换并清理 git 历史。');
-console.log('      提交前可临时把队内姓名写入 .local/forbidden.txt，本扫描会列出所有待清理位置。');
-console.log('提醒：账号名、提交作者名、演示录屏中的个人信息仍需人工复核。');
+console.log('INFO：本仓库已 public，分工只用姓氏单字或代号，禁止写成员全名。');
+console.log('      建议把四位成员全名 / 校名写进 .local/forbidden.txt 常驻，本扫描会拦截手滑写回的内容。');
+console.log('提醒：GitHub 账号名、提交作者名与邮箱、演示录屏中的个人信息仍需人工复核。');
 process.exit(0);

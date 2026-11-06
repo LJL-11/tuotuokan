@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://tuotuokan.local/contracts/template.schema.json",
   "title": "拖拖看 TemplateSpec v1",
-  "description": "一个可交互概念沙盒的纯数据描述。由姜雅文(AI生成/精修)或付嘉一(模板工坊)产出，经 TTK.dsl.validate 校验、TTK.dsl.compile 编译后注册进引擎。字段含义与 src/model/dsl.js 的 validate() 保持一致，改动需同步两边并升版本。",
+  "description": "一个可交互概念沙盒的纯数据描述。由姜(AI生成/精修)或付(模板工坊)产出，经 TTK.dsl.validate 校验、TTK.dsl.compile 编译后注册进引擎。字段含义与 src/model/dsl.js 的 validate() 保持一致，改动需同步两边并升版本。",
   "type": "object",
   "required": ["id", "name", "subject", "brief", "x", "params", "series"],
   "properties": {

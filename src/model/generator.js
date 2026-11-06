@@ -1,4 +1,4 @@
-/* 拖拖看 · 概念输入与 AI 生成（姜雅文 · #I4 / #I5）
+/* 拖拖看 · 概念输入与 AI 生成（姜 · #I4 / #I5）
  * ---------------------------------------------------------------
  * 【状态】接口占位。骨架已由 index.html 加载（零副作用，可在控制台调试），当前只提供「诚实的本地降级」。
  * 【接入方式】在 app.js 的「生成沙盒」按钮里调用
@@ -7,7 +7,7 @@
  * 三条不可破的约束：
  *  1. 模型输出永远是「数据」，必须先 dsl.validate + dsl.compile 才能进引擎，绝不执行模型给的代码。
  *  2. 没有模型时必须降级为 dsl.draft() 草稿，并在 UI 明示「本地草稿」，不得谎称 AI 生成。
- *  3. 模型密钥不许放前端。需要大模型时由秦庆泽在 services/api 加服务端代理，这里只配 endpoint。
+ *  3. 模型密钥不许放前端。需要大模型时由秦在 services/api 加服务端代理，这里只配 endpoint。
  */
 (function (global) {
   'use strict';
@@ -77,6 +77,6 @@
     generate: generate,
     mount: mount,
     config: function () { return { enabled: config.enabled, endpoint: config.endpoint, model: config.model }; },
-    TODO: ['#I4 LLM 生成 + 输出校验 + 降级', '#I5 多模态概念识别', '#I6 精修模板与先修关系', '与秦庆泽约定 /generate 代理端点']
+    TODO: ['#I4 LLM 生成 + 输出校验 + 降级', '#I5 多模态概念识别', '#I6 精修模板与先修关系', '与秦约定 /generate 代理端点']
   };
 })(window);

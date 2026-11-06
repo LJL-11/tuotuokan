@@ -69,5 +69,5 @@ docs(contracts): 补充 prerequisites 的图谱语义
 
 - 代码标识符、分支、commit 用英文；界面文案、文档、注释用简体中文。
 - 模板 `id` 小写英文、`params[].key` 字母开头，且不得与保留名 `x/p/M/Math/PI/E/m` 冲突。
-- 队内分工用姓名标注；Issue 标签 / 分支前缀沿用字母代号：`owner:lead` = 付嘉一，`owner:a` = 姜雅文，`owner:b` = 曹蕾，`owner:c` = 秦庆泽。
-- 姓名仅限私有仓库内部，对外提交 / 演示 / 公开前必须按 [`docs/04-参赛合规.md`](docs/04-参赛合规.md) 全仓替换并清理 git 历史。
+- 仓库已 public，分工只用姓氏单字或代号，**禁止写成员全名**；Issue 标签 / 分支前缀沿用字母代号：`owner:lead` = 付，`owner:a` = 姜，`owner:b` = 曹，`owner:c` = 秦。
+- 仓库内任何内容都视为对外材料，提交前跑 `npm run check:anon`；详见 [`docs/04-参赛合规.md`](docs/04-参赛合规.md)。
