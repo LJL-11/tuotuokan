@@ -1,0 +1,16 @@
+{
+  "name": "tuotuokan",
+  "version": "0.1.0",
+  "private": true,
+  "description": "把抽象概念变成可拖参数的可交互沙盒 · 通用引擎原型",
+  "scripts": {
+    "test": "node tools/verify.js",
+    "check:anon": "node tools/check-anonymity.js",
+    "check": "npm test && npm run check:anon"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

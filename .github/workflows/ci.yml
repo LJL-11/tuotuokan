@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    name: 契约 / 语法 / 数值 / 安全 / 匿名合规
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 校验语法、路径、DOM 引用、模板数值、DSL 与表达式白名单
+        run: node tools/verify.js
+
+      - name: 匿名评审合规扫描
+        run: node tools/check-anonymity.js

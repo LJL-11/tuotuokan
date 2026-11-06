@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://tuotuokan.local/contracts/learning-trace.schema.json",
+  "title": "拖拖看 LearningTrace v1",
+  "description": "匿名学习轨迹的导出格式。TTK.data.exportAll() 产出，TTK.data.importAll() 消费，队员C 的后端 /events 与 /trace 接口按同一结构传输。严禁包含姓名、学校、班级、设备标识、IP 等可识别信息。",
+  "type": "object",
+  "required": ["schema", "exportedAt", "events"],
+  "properties": {
+    "schema": { "const": "ttk.learning-trace.v1" },
+    "exportedAt": { "type": "string", "format": "date-time" },
+    "notice": { "type": "string", "description": "匿名声明，固定文案" },
+    "summary": { "type": "object", "description": "TTK.data.stats() 的聚合结果" },
+    "events": { "type": "array", "items": { "$ref": "#/definitions/learningEvent" } },
+    "progress": {
+      "type": "object",
+      "additionalProperties": { "type": "boolean" },
+      "description": "键为 '<tplId>:<challengeIndex>'，值为是否已完成"
+    },
+    "stuck": { "type": "array", "items": { "$ref": "#/definitions/stuckEvent" } },
+    "customTemplates": { "type": "array", "items": { "type": "object" } }
+  },
+  "definitions": {
+    "learningEvent": {
+      "type": "object",
+      "required": ["at", "tpl", "reason", "params"],
+      "properties": {
+        "at": { "type": "integer", "description": "Unix 毫秒时间戳" },
+        "tpl": { "type": "string", "description": "模板 id" },
+        "name": { "type": "string", "description": "模板中文名，冗余存一份便于离线阅读" },
+        "reason": {
+          "enum": ["param", "select", "reset", "stuck", "challenge", "view"],
+          "description": "触发原因。param=拖参数(节流后), select=切换概念, reset=重置, stuck=求助, challenge=完成挑战, view=切换视图(预留)"
+        },
+        "params": { "type": "object", "additionalProperties": { "type": "number" }, "description": "触发时的完整参数快照" },
+        "insight": { "type": "string", "description": "该参数下的模型洞察，可空" }
+      }
+    },
+    "stuckEvent": {
+      "type": "object",
+      "required": ["at", "tpl"],
+      "properties": {
+        "at": { "type": "integer" },
+        "tpl": { "type": "string" }
+      }
+    }
+  }
+}

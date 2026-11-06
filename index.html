@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="拖拖看：把抽象概念变成能拖参数的可交互沙盒">
+  <title>拖拖看 · 交互式概念沙盒</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">拖拖看</span>
+        <span class="tagline">把抽象概念变成能拖的沙盒</span>
+      </div>
+      <div class="ask-area">
+        <div class="ask-row">
+          <span class="ask-prefix">我不懂</span>
+          <input id="conceptInput" type="text" autocomplete="off" placeholder="过拟合 / 供需 / 抛体 / R₀ …">
+          <button id="askBtn" class="btn primary">生成沙盒</button>
+        </div>
+        <div id="askHint" class="ask-hint"></div>
+      </div>
+      <button id="journalBtn" class="btn ghost">
+        学习记录 <span id="journalBadge" class="badge">0</span>
+      </button>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar">
+        <div class="side-head">
+          <span>概念库</span>
+          <span id="tplCount" class="side-count"></span>
+        </div>
+        <div id="subjectNav" class="subject-nav"></div>
+        <div id="tplList" class="tpl-list"></div>
+        <div class="side-foot">
+          <strong>通用引擎</strong>
+          模板只描述「参数 + 模型 + 指标」，<br>渲染与运行时完全复用。<br>
+          <span class="kbd">← →</span> 可快速切换概念
+        </div>
+      </aside>
+
+      <section class="stage">
+        <div class="stage-head">
+          <div>
+            <h1 id="tplName">—</h1>
+            <p id="tplBrief"></p>
+          </div>
+          <span id="tplSubject" class="subject-tag"></span>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="stage"></canvas>
+        </div>
+        <div class="insight-box">
+          <span class="insight-icon">✦</span>
+          <p id="insight"></p>
+        </div>
+        <div class="concept-box">
+          <span class="box-label">概念说明</span>
+          <p id="conceptNote"></p>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div class="panel-head">
+          <span>参数 <em>拖动即时重算</em></span>
+          <button id="resetBtn" class="btn tiny">重置</button>
+        </div>
+        <div id="paramList" class="param-list"></div>
+
+        <div class="panel-head"><span>观测指标</span></div>
+        <div id="metricList" class="metrics"></div>
+
+        <div class="panel-head"><span>试试看 <em id="challengeCount"></em></span></div>
+        <div id="challengeList" class="challenges"></div>
+
+        <button id="stuckBtn" class="stuck-btn">
+          <span>我卡住了，给我推一个前置概念</span><span class="arrow">→</span>
+        </button>
+        <div class="panel-foot">记录仅保存在本机浏览器，不上传</div>
+      </aside>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <div id="mask" class="mask"></div>
+  <aside id="drawer" class="drawer">
+    <div class="drawer-head">
+      <div>
+        <h2>学习记录</h2>
+        <p>你在沙盒里试过的每一步，都会变成下一步的依据</p>
+      </div>
+      <button id="closeDrawer" class="btn tiny">关闭</button>
+    </div>
+    <div id="statBox" class="stat-box"></div>
+    <h3>概念掌握度</h3>
+    <div id="progressBox" class="progress-box"></div>
+    <h3>最近轨迹</h3>
+    <div id="timeline" class="timeline"></div>
+    <button id="clearLog" class="btn danger">清空本机记录</button>
+  </aside>
+
+  <!-- 传统 script 标签：双击 index.html 即可运行，file:// 下无 CORS 问题。
+       顺序 = 依赖顺序，新增模块请按分层追加；各目录 owner 见 README / CODEOWNERS。 -->
+  <script src="src/core/engine.js"></script>      <!-- 队员B：状态与数学工具 -->
+  <script src="src/core/expr.js"></script>        <!-- 队员B：安全表达式求值 -->
+  <script src="src/model/dsl.js"></script>        <!-- 队员A：模板 DSL 编译 -->
+  <script src="src/model/generator.js"></script>  <!-- 队员A：概念输入 / AI 生成（骨架，加载无副作用） -->
+  <script src="src/viz/render.js"></script>       <!-- 队长：Canvas 渲染器 -->
+  <script src="src/model/templates.js"></script>  <!-- 队员A：精修概念模板库 -->
+  <script src="src/learning/data.js"></script>   <!-- 队员C：数据层适配器 -->
+  <script src="src/learning/graph.js"></script>  <!-- 队长+队员C：概念图谱 / 诊断 -->
+  <script src="src/ui/views.js"></script>        <!-- 队长：四视图路由（骨架，加载无副作用） -->
+  <script src="src/ui/app.js"></script>          <!-- 队长：页面交互与装配 -->
+  <!-- 骨架模块已加载，可在控制台直接调试 TTK.views / TTK.generator；
+       视图实现与 UI 接入尚未完成，见 docs/02-路线图与任务看板.md 的 #I1 #I4 -->
+</body>
+</html>

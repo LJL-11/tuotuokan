@@ -1,0 +1,24 @@
+# 拖拖看 · 目录 ownership（对应 docs/00-分工与协作.md）
+#
+# ⚠️ 仓库建立后的第一件事：把 @OWNER_* 替换成四位成员的真实 GitHub 账号，
+#    并删除下面配置行开头的 "# "，本文件才会生效。
+#    未替换前全部是注释，是刻意为之——避免把占位账号写进评审规则。
+#    注意：账号名、提交作者名也可能泄露身份，公开仓库前请复核 docs/04-参赛合规.md。
+#
+# 语法：每行一个路径模式 + 一个或多个 owner；后出现的规则覆盖前面的。
+#
+# *                              @OWNER_LEAD
+# /src/core/                     @OWNER_B
+# /src/model/                    @OWNER_A
+# /src/model/dsl.js              @OWNER_B @OWNER_A
+# /src/viz/                      @OWNER_LEAD
+# /src/ui/                       @OWNER_LEAD
+# /index.html                    @OWNER_LEAD @OWNER_B
+# /assets/                       @OWNER_LEAD
+# /src/learning/data.js          @OWNER_C
+# /src/learning/graph.js         @OWNER_LEAD @OWNER_C
+# /services/api/                 @OWNER_C
+# /tools/                        @OWNER_B @OWNER_C
+# /.github/                      @OWNER_C
+# /docs/                         @OWNER_LEAD @OWNER_C
+# /contracts/                    @OWNER_LEAD @OWNER_A @OWNER_B @OWNER_C

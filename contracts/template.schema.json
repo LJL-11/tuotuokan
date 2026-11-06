@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://tuotuokan.local/contracts/template.schema.json",
+  "title": "拖拖看 TemplateSpec v1",
+  "description": "一个可交互概念沙盒的纯数据描述。由队员A(AI生成/精修)或队长(模板工坊)产出，经 TTK.dsl.validate 校验、TTK.dsl.compile 编译后注册进引擎。字段含义与 src/model/dsl.js 的 validate() 保持一致，改动需同步两边并升版本。",
+  "type": "object",
+  "required": ["id", "name", "subject", "brief", "x", "params", "series"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{1,30}$",
+      "description": "全局唯一、小写英文开头。跨层主键，不许改名。"
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 40, "description": "概念中文名" },
+    "subject": { "type": "string", "minLength": 1, "maxLength": 30, "description": "学科分类，用于侧栏分组" },
+    "icon": { "type": "string", "maxLength": 4, "description": "单字符图标，可省" },
+    "brief": { "type": "string", "minLength": 1, "maxLength": 80, "description": "一句话说明这个沙盒能玩什么" },
+    "concept": { "type": "string", "description": "概念说明，面向没学过该概念的大学生" },
+    "keywords": { "type": "array", "items": { "type": "string" }, "description": "输入层关键词匹配用" },
+    "prerequisites": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "先修概念的模板 id 列表，供 TTK.Graph 建图谱与卡点推荐。填不存在的 id 会被图谱忽略。"
+    },
+    "x": {
+      "type": "object",
+      "required": ["min", "max"],
+      "description": "横轴自变量范围与采样",
+      "properties": {
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "label": { "type": "string" },
+        "yLabel": { "type": "string" },
+        "samples": { "type": "integer", "minimum": 20, "maximum": 400, "default": 160 }
+      }
+    },
+    "params": {
+      "type": "array", "minItems": 1, "maxItems": 6,
+      "description": "可拖参数。key 是跨层主键，不得与保留名 x/p/M/Math/PI/E/m 冲突。",
+      "items": {
+        "type": "object",
+        "required": ["key", "label", "min", "max", "step", "default"],
+        "properties": {
+          "key": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" },
+          "label": { "type": "string", "maxLength": 30 },
+          "min": { "type": "number" },
+          "max": { "type": "number" },
+          "step": { "type": "number", "exclusiveMinimum": 0 },
+          "default": { "type": "number" },
+          "unit": { "type": "string" },
+          "hint": { "type": "string" }
+        }
+      }
+    },
+    "series": {
+      "type": "array", "minItems": 1, "maxItems": 4,
+      "description": "曲线。expr 中 x 为横轴自变量，p.<key> 取参数值，m.v0 为第一个指标值。",
+      "items": {
+        "type": "object",
+        "required": ["name", "expr"],
+        "properties": {
+          "name": { "type": "string", "maxLength": 30 },
+          "expr": { "type": "string", "minLength": 1, "description": "受限数学表达式，见 src/core/expr.js；禁止赋值、语句、下标、全局访问。" },
+          "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+          "style": { "enum": ["line", "dashed", "area", "scatter", "bar"] }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array", "maxItems": 5,
+      "description": "可观测指标卡。最多 5 个，按数组顺序对应 m.v0..m.v4。",
+      "items": {
+        "type": "object",
+        "required": ["label", "expr"],
+        "properties": {
+          "label": { "type": "string", "maxLength": 30 },
+          "expr": { "type": "string", "minLength": 1 },
+          "unit": { "type": "string" }
+        }
+      }
+    },
+    "challenges": {
+      "type": "array", "maxItems": 3,
+      "description": "引导挑战。expr 必须返回布尔，由 check(p, m) 判定。",
+      "items": {
+        "type": "object",
+        "required": ["text", "expr"],
+        "properties": {
+          "text": { "type": "string", "maxLength": 80 },
+          "expr": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "insight": { "type": "string", "description": "当前参数下的一句话洞察，说明拖哪个参数会看到什么" }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "id": "spring",
+  "name": "弹簧振子",
+  "subject": "物理学",
+  "icon": "~",
+  "brief": "劲度系数怎么决定振动快慢？",
+  "concept": "位移满足 x(t)=A·cos(√k·t)：k 越大，回复力越强，振动越快，但振幅不变。",
+  "keywords": ["弹簧", "胡克定律", "振动"],
+  "prerequisites": ["oscillation"],
+  "x": { "min": 0, "max": 10, "label": "时间 (s)", "yLabel": "位移", "samples": 160 },
+  "params": [
+    { "key": "A", "label": "振幅 A", "min": 0.1, "max": 3, "step": 0.1, "default": 1, "unit": "m", "hint": "拉开的初始距离" },
+    { "key": "k", "label": "劲度系数 k", "min": 0.1, "max": 8, "step": 0.1, "default": 1, "unit": "", "hint": "弹簧有多硬" }
+  ],
+  "series": [
+    { "name": "位移 x(t)", "expr": "p.A * Math.cos(Math.sqrt(p.k) * x)", "color": "#4f46e5" },
+    { "name": "包络 +A", "expr": "p.A", "color": "#94a3b8", "style": "dashed" }
+  ],
+  "metrics": [
+    { "label": "角频率", "expr": "Math.sqrt(p.k)", "unit": "rad/s" },
+    { "label": "周期", "expr": "2 * PI / Math.sqrt(p.k)", "unit": "s" }
+  ],
+  "insight": "拖动 k：曲线横向压缩，但高度不变——刚度只改快慢，不改振幅。",
+  "challenges": [
+    { "text": "把 k 调到 5 以上，让周期小于 π", "expr": "2 * PI / Math.sqrt(p.k) < PI" }
+  ]
+}

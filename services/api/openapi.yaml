@@ -1,0 +1,188 @@
+openapi: 3.0.3
+info:
+  title: 拖拖看 · 匿名同步服务 API
+  version: 1.0.0
+  description: >-
+    队员C 负责实现。所有接口只接收匿名数据：不得记录姓名、学校、设备指纹、IP 到业务数据。
+    学习事件的字段与 contracts/learning-trace.schema.json 完全一致；
+    前端 TTK.data.remote 的 base URL 指向本服务的 servers[0].url。
+    未配置服务时前端纯 localStorage 运行，行为必须保持一致。
+servers:
+  - url: https://api.example.invalid/v1
+    description: 占位地址，部署后替换；本地开发可用 http://127.0.0.1:8787/v1
+tags:
+  - name: events
+    description: 学习轨迹事件
+  - name: trace
+    description: 匿名导出与导入
+  - name: templates
+    description: 用户自定义模板
+  - name: identity
+    description: 匿名身份
+paths:
+  /auth/anonymous:
+    post:
+      tags: [identity]
+      summary: 创建或恢复一个匿名身份
+      description: >-
+        只生成随机不可识别 ID，不需要手机号/邮箱/学号。
+        客户端把返回的 anonId 存在本地；换设备时由用户手动输入该 ID 完成同步（见 #I11）。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                existingId:
+                  type: string
+                  description: 已有匿名 ID，传入则恢复，不新建
+      responses:
+        '200':
+          description: 匿名身份
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [anonId]
+                properties:
+                  anonId: { type: string, example: 'a7f3c9e2' }
+                  createdAt: { type: string, format: date-time }
+  /events:
+    post:
+      tags: [events]
+      summary: 批量上报学习事件（离线队列联网后一次提交）
+      description: 请求体与 contracts/learning-trace.schema.json 的 event 定义一致；服务端需按 anonId 去重（at + tpl + reason）。
+      parameters:
+        - in: header
+          name: X-Anon-Id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [anonymous, events]
+              properties:
+                anonymous: { type: boolean, enum: [true], description: 固定为 true，声明本批数据为匿名数据 }
+                events:
+                  type: array
+                  items: { $ref: '#/components/schemas/LearningEvent' }
+      responses:
+        '202': { description: 已接收，异步落库 }
+        '400': { description: 事件格式不合法，返回逐条错误 }
+  /trace:
+    get:
+      tags: [trace]
+      summary: 导出该匿名身份的完整学习轨迹
+      parameters:
+        - in: header
+          name: X-Anon-Id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: LearningTrace v1
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LearningTrace' }
+  /trace/import:
+    post:
+      tags: [trace]
+      summary: 导入一份匿名学习轨迹（与 TTK.data.importAll 输入格式相同）
+      parameters:
+        - in: header
+          name: X-Anon-Id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LearningTrace' }
+      responses:
+        '200':
+          description: 导入结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  events: { type: integer }
+  /templates:
+    get:
+      tags: [templates]
+      summary: 列出该身份保存的自定义 TemplateSpec
+      parameters:
+        - in: header
+          name: X-Anon-Id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: 模板列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, description: 'TemplateSpec v1，字段见 contracts/template.schema.json；服务端按该 schema 校验' }
+    put:
+      tags: [templates]
+      summary: 保存 / 覆盖一个自定义模板（服务端需按 template.schema.json 校验）
+      parameters:
+        - in: header
+          name: X-Anon-Id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: 'TemplateSpec v1，字段见 contracts/template.schema.json；服务端按该 schema 校验' }
+      responses:
+        '200': { description: 已保存 }
+        '422': { description: 模板未通过校验，返回逐字段错误 }
+components:
+  schemas:
+    LearningEvent:
+      type: object
+      required: [at, tpl, reason, params]
+      properties:
+        at: { type: integer, format: int64, description: Unix 毫秒时间戳 }
+        tpl: { type: string }
+        name: { type: string }
+        reason:
+          type: string
+          enum: [param, select, reset, stuck, challenge, view]
+        params:
+          type: object
+          additionalProperties: { type: number }
+        insight: { type: string }
+    LearningTrace:
+      type: object
+      required: [schema, exportedAt, events]
+      properties:
+        schema: { type: string, const: 'ttk.learning-trace.v1' }
+        exportedAt: { type: string, format: date-time }
+        notice: { type: string }
+        summary: { type: object }
+        events:
+          type: array
+          items: { $ref: '#/components/schemas/LearningEvent' }
+        progress:
+          type: object
+          additionalProperties: { type: boolean }
+        stuck:
+          type: array
+          items:
+            type: object
+            required: [at, tpl]
+            properties:
+              at: { type: integer, format: int64 }
+              tpl: { type: string }
+        customTemplates:
+          type: array
+          items: { type: object }

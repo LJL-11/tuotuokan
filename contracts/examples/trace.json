@@ -1,0 +1,36 @@
+{
+  "schema": "ttk.learning-trace.v1",
+  "exportedAt": "2026-11-06T05:00:00.000Z",
+  "notice": "匿名导出：不含姓名、学校、设备标识",
+  "summary": {
+    "interactions": 2,
+    "paramEvents": 1,
+    "explored": 1,
+    "totalConcepts": 1,
+    "challengesDone": 0,
+    "challengesTotal": 1,
+    "stuckCount": 0,
+    "byTpl": { "spring": 2 }
+  },
+  "events": [
+    {
+      "at": 1762405200000,
+      "tpl": "spring",
+      "name": "弹簧振子",
+      "reason": "select",
+      "params": { "A": 1, "k": 1 },
+      "insight": "拖动 k：曲线横向压缩，但高度不变——刚度只改快慢，不改振幅。"
+    },
+    {
+      "at": 1762405203400,
+      "tpl": "spring",
+      "name": "弹簧振子",
+      "reason": "param",
+      "params": { "A": 1, "k": 6 },
+      "insight": "拖动 k：曲线横向压缩，但高度不变——刚度只改快慢，不改振幅。"
+    }
+  ],
+  "progress": { "spring:0": false },
+  "stuck": [],
+  "customTemplates": []
+}

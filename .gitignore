@@ -1,0 +1,27 @@
+# 本机私有数据（含匿名检查的敏感词表，绝不能入库）
+.local/
+.env
+.env.*
+!.env.example
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# 构建与日志
+node_modules/
+dist/
+build/
+coverage/
+*.log
+*.local.json
+
+# 参赛官方材料、成员信息、试用原始数据不放进代码仓库
+*.pdf
+*.docx
+*.xlsx
+*.pptx
+!/docs/**/*.pdf
