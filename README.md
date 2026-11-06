@@ -60,11 +60,12 @@ npm run check       # 两个都跑
 
 ## 协作规则
 
-- **`main` 是受保护分支：队员一律不得直接 push，也不得自行合并 PR**，只能从 `feat/<代号>-<短名>` 提 PR。
-- 每个 PR 必须 **CI 全绿 + 队长 approve** 才能合并；**只有队长执行合并**，且只用 Squash merge。
-- 提 PR 前跑 `npm run check`；涉及 `contracts/` 需队长 + 受影响方 approve。
-- 上面这些由 GitHub 分支保护规则强制执行，不是口头约定。队长开启步骤见 [`docs/00-分工与协作.md`](docs/00-分工与协作.md) 第五节。
-- commit 格式 `feat(model): 一句话`。完整规则见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+**不设审批门禁**：可以直接 push `main`，也可以开分支提 PR、互相合并，按方便来；不需要 approve，也没有指定合并人。
+
+- 建议认领 `docs/02` 的任务再动手，改完跑一次 `npm run check`（64 项校验 + 匿名扫描），避免互相覆盖。
+- `contracts/` 是全员共管的汇合点，改字段前先和受影响的人对清楚，并同步四处（schema / examples / dsl.js / `docs/01`）。
+- CI 在 push 与 PR 时自动跑 `npm test` + 匿名扫描，红了及时修。
+- commit 用 `类型(范围): 一句话`。其余见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
 
 ## 两条硬规矩
 

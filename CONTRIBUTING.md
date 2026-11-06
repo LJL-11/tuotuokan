@@ -13,6 +13,8 @@
 
 ## 分支与提交
 
+可以直接在 `main` 上改，也可以自己切分支（开分支是可选做法）：
+
 ```bash
 git switch main && git pull
 git switch -c feat/a-llm-generator     # feat / fix / docs / refactor / test / chore
@@ -26,17 +28,19 @@ fix(core): 修复高阶多项式在边界的数值溢出
 docs(contracts): 补充 prerequisites 的图谱语义
 ```
 
-一个分支只做一件事；不要顺手格式化别人的文件。
+一次提交只做一件事；不要顺手格式化别人的文件。
 
-## 三条不可协商的规则
+## 合入方式
 
-1. **队员不得直接 push `main`**，也不得点 Merge 合并自己的或他人的 PR。
-2. **每个 PR 必须队长 approve + CI 全绿**才具备合并资格；涉及 `contracts/` 还要全部受影响方 approve。
-3. **只有队长执行合并**，且只用 Squash merge。队长自己改东西同样走 PR。
+**本仓库不设审批门禁**：直接 push `main`、开分支提 PR、互相合并都行，不需要 approve，也没有指定合并人。
 
-这三条由 GitHub 分支保护强制（设置见 `docs/00` 第五节），不是口头约定。
+建议做到的三件事（靠自觉，不是门槛）：
 
-## 提 PR 前自检
+1. 提交前跑 `npm run check`（64 项校验 + 匿名合规扫描）。
+2. 改动较大、或涉及公共文件（`contracts/`、`index.html`）时，先在群里说一声，避免互相覆盖。
+3. CI 在 push 和 PR 时自动运行，红了尽快修，别让 `main` 长期挂红。
+
+## 提交前自检
 
 - [ ] `npm test` 通过（语法、脚本路径、DOM 引用、模板数值、DSL、表达式安全、契约样例）
 - [ ] `npm run check:anon` 通过
@@ -44,23 +48,14 @@ docs(contracts): 补充 prerequisites 的图谱语义
 - [ ] 没有把 `Math.random()` 写进模板（要用 `TTK.math.rng(seed)`）
 - [ ] 没有在模板里操作 DOM / Canvas / localStorage / 网络
 - [ ] 没有在前端写密钥、账号、校名
-- [ ] 我没有直接 push `main`，也不会自己点 Merge（等队长）
 - [ ] 涉及 `contracts/` 的改动已同步 JSON Schema、examples、dsl.js 和 `docs/01-接口契约.md`
 - [ ] 新增模板的每个挑战都实际拖到过（不是只看代码觉得可达）
 
-## Review 规则
+## 交叉改动
 
-| 改动范围 | 需要谁 approve |
-|---|---|
-| **任何 PR（无例外）** | **队长**；队长同时是唯一合并人 |
-| 自己 owner 的目录 | 队长 |
-| `contracts/` | 队长 + 所有受影响的队员 |
-| `index.html` 脚本顺序 | 队长 + 队员 B |
-| `tools/`、`.github/` | 队长 + 队员 C |
-| 其他人的目录 | 先在该目录 owner 的 issue 里说明，别直接提 |
-
-PR 被驳回或新提交推送后，旧 approve 作废，需要重新 review。
-合并用 **Squash merge**，`main` 必须保持 CI 全绿且禁止 force push。
+- 改 `contracts/`、`index.html` 脚本加载顺序或别人 owner 的目录时，先和对应的人对清楚。
+- 别让别人在自己的分支里发现字段变了；具体同步清单见下节。
+- 若走 PR，可用 `.github/PULL_REQUEST_TEMPLATE.md` 里的自检清单。
 
 ## 改契约的正确姿势
 
@@ -68,7 +63,7 @@ PR 被驳回或新提交推送后，旧 approve 作废，需要重新 review。
 2. 讨论达成一致后再动代码，同步四处：`contracts/*.schema.json`、`contracts/examples/*`、
    `src/model/dsl.js` 的 `validate()`/`example`、`docs/01-接口契约.md`。
 3. 加可选字段 = 兼容；改含义 / 删字段 / 改必填 = **升 v2 并保留 v1 读兼容**。
-4. PR 描述里列出需要配合改动的队员，别让别人在自己的分支里发现字段变了。
+4. 在改动说明里列出需要配合改动的队员。
 
 ## 命名与语言
 
