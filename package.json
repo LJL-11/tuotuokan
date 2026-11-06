@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node tools/verify.js",
     "check:anon": "node tools/check-anonymity.js",
-    "check": "npm test && npm run check:anon"
+    "check": "npm test && npm run check:anon",
+    "bench": "node tools/benchmark.js"
   },
   "engines": {
     "node": ">=18"
