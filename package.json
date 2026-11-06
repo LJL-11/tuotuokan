@@ -9,7 +9,8 @@
     "check": "npm test && npm run api:smoke && npm run check:anon",
     "bench": "node tools/benchmark.js",
     "api": "node services/api/server.js",
-    "api:smoke": "node services/api/smoke.js"
+    "api:smoke": "node services/api/smoke.js",
+    "api:browser": "node services/api/browser-check.js"
   },
   "engines": {
     "node": ">=18"

@@ -11,9 +11,12 @@
 ```powershell
 npm run api
 npm run check
+npm run api:browser
 ```
 
 服务默认监听 `http://127.0.0.1:8787/v1`。`npm run api:smoke` 可以单独运行 I10 验收，使用随机端口和 `.local/ttk-api-*` 临时库，结束后校验路径并清理，不碰真实学习数据。
+
+`npm run api:browser` 是**真实浏览器验收**：自动发现本机 Edge / Chrome，用 CDP 起 headless 实例打开 `file://` 页面，验证拖参数上报、断网刷新补发与跨浏览器读回（22 项）。找不到浏览器时以退出码 2 跳过，不进 CI（CI 是 Linux 无头环境，装浏览器成本不值）。
 
 服务数据保存在 `services/api/.data/db.json`，已被 Git 忽略。可用环境变量指定目录、地址和端口：
 
