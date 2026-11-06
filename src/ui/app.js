@@ -1,36 +1,21 @@
 /* 拖拖看 · 应用层
  * ---------------------------------------------------------------
  * 输入层（自然语言匹配） / 交互控件 / 闭环层（轨迹、挑战、卡点诊断、下一个沙盒）
- * 数据全部存在 localStorage，不上传、不依赖后端。
+ * 学习数据的唯一真源是 TTK.data，卡点推荐的唯一来源是 TTK.createGraph 的 recommend()。
+ * 本文件不直接读写本地存储，也不自带存储实现（#I13）。
  */
 (function (global) {
   'use strict';
 
   var TTK = global.TTK;
   var M = TTK.math;
+  var data = TTK.data;
   var engine = TTK.createEngine();
   TTK.templates.forEach(function (t) { engine.register(t); });
+  var graph = TTK.createGraph(engine, data);
   var renderer = new TTK.Renderer(document.getElementById('stage'));
-
-  var K = {
-    trail: 'ttk.trail.v1',
-    progress: 'ttk.progress.v1',
-    stuck: 'ttk.stuck.v1'
-  };
-
-  function load(key, fallback) {
-    try {
-      var raw = global.localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
-    } catch (e) { return fallback; }
-  }
-  function save(key, value) {
-    try { global.localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* 隐私模式下静默降级 */ }
-  }
-
-  var progress = load(K.progress, {});
-  var trail = load(K.trail, []);
-  var stuckLog = load(K.stuck, []);
+  TTK.engine = engine; // 便于控制台调试与后续接入 AI 生成
+  TTK.graph = graph;   // 四视图 / 图谱可视化共用同一个实例
 
   function $(id) { return document.getElementById(id); }
   function esc(s) {
@@ -75,11 +60,8 @@
   }
 
   function challengeDone(tpl) {
-    var total = (tpl.challenges || []).length;
-    if (!total) return false;
-    var n = 0;
-    for (var i = 0; i < total; i++) if (progress[tpl.id + ':' + i]) n++;
-    return n === total;
+    var b = data.byTpl(tpl.id, tpl);
+    return b.challengeTotal > 0 && b.challengeDone === b.challengeTotal;
   }
 
   function markActive(id) {
@@ -129,38 +111,32 @@
   }
 
   function buildChallenges(tpl) {
+    var progress = data.progress();
     $('challengeList').innerHTML = (tpl.challenges || []).map(function (c, i) {
       var done = !!progress[tpl.id + ':' + i];
       return '<div class="challenge' + (done ? ' done' : '') + '" data-index="' + i + '">' +
         '<span class="check">' + (done ? '✓' : '○') + '</span><span>' + esc(c.text) + '</span></div>';
     }).join('');
-    var total = (tpl.challenges || []).length, done = 0;
-    for (var i = 0; i < total; i++) if (progress[tpl.id + ':' + i]) done++;
-    $('challengeCount').textContent = done + '/' + total;
+    var b = data.byTpl(tpl.id, tpl);
+    $('challengeCount').textContent = b.challengeDone + '/' + b.challengeTotal;
   }
 
   function checkChallenges(state) {
     var tpl = state.tpl, m = state.spec.m || {}, changed = false;
     (tpl.challenges || []).forEach(function (c, i) {
-      var key = tpl.id + ':' + i;
-      if (progress[key]) return;
       var ok = false;
       try { ok = !!c.check(state.params, m); } catch (e) { ok = false; }
-      if (ok) {
-        progress[key] = true;
-        changed = true;
-        var el = $('challengeList').querySelector('[data-index="' + i + '"]');
-        if (el) { el.classList.add('done'); el.querySelector('.check').textContent = '✓'; }
-        toast('挑战完成：' + c.text, 'ok');
-      }
+      if (!ok || !data.markChallenge(tpl.id, i)) return; // 已完成的不重复写盘 / 不重复提示
+      changed = true;
+      var el = $('challengeList').querySelector('[data-index="' + i + '"]');
+      if (el) { el.classList.add('done'); el.querySelector('.check').textContent = '✓'; }
+      toast('挑战完成：' + c.text, 'ok');
     });
     if (changed) {
-      save(K.progress, progress);
-      var total = (tpl.challenges || []).length, done = 0;
-      for (var j = 0; j < total; j++) if (progress[tpl.id + ':' + j]) done++;
-      $('challengeCount').textContent = done + '/' + total;
+      var b = data.byTpl(tpl.id, tpl);
+      $('challengeCount').textContent = b.challengeDone + '/' + b.challengeTotal;
       var card = $('tplList').querySelector('[data-id="' + tpl.id + '"] .tpl-dot');
-      if (card && done === total) card.classList.add('done');
+      if (card && b.challengeTotal && b.challengeDone === b.challengeTotal) card.classList.add('done');
     }
   }
 
@@ -173,35 +149,34 @@
       var item = pendingTrail;
       if (!item) return;
       var s = item.state;
-      trail.push({
+      data.log({
         at: Date.now(), tpl: s.tpl.id, name: s.tpl.name,
         reason: item.reason, params: Object.assign({}, s.params),
         insight: s.spec.insight || ''
       });
-      if (trail.length > 300) trail = trail.slice(-300);
-      save(K.trail, trail);
       updateBadge();
     }, 400);
   }
 
   function updateBadge() {
-    $('journalBadge').textContent = trail.length > 99 ? '99+' : String(trail.length);
+    var n = data.trail().length;
+    $('journalBadge').textContent = n > 99 ? '99+' : String(n);
   }
 
   function diagnoseStuck() {
     var cur = engine.get(engine.currentId);
-    stuckLog.push({ at: Date.now(), tpl: cur.id });
-    if (stuckLog.length > 200) stuckLog = stuckLog.slice(-200);
-    save(K.stuck, stuckLog);
+    data.addStuck(cur.id);
     recordTrail(engine.state, 'stuck');
 
-    var candidates = (cur.prerequisites || []).map(function (id) { return engine.get(id); }).filter(Boolean);
-    var pool = candidates.length ? candidates : engine.all().filter(function (t) { return t.id !== cur.id; });
-    // 优先推荐「还没完成挑战」的概念，其次推荐没探索过的
-    var target = pool.find(function (t) { return !challengeDone(t); }) || pool[0];
-    if (!target) { toast('已经把所有概念都走完了，试着换个参数组合重新观察'); return; }
-    toast('卡点已记录 → 先补「' + target.name + '」的前置直觉', 'ok');
-    setTimeout(function () { select(target.id); }, 700);
+    // 图谱给出的是按分数降序的完整建议数组；卡住时优先回到当前概念的先修链。
+    var suggestions = graph.recommend();
+    var pre = {};
+    (cur.prerequisites || []).forEach(function (id) { pre[id] = true; });
+    var candidates = suggestions.filter(function (s) { return s.tpl && s.tpl.id !== cur.id; });
+    var pick = candidates.filter(function (s) { return pre[s.tpl.id]; })[0] || candidates[0];
+    if (!pick) { toast('已经把所有概念都走完了，试着换个参数组合重新观察'); return; }
+    toast('卡点已记录 → 先补「' + pick.tpl.name + '」：' + pick.reason, 'ok');
+    setTimeout(function () { select(pick.tpl.id); }, 700);
   }
 
   /* ---------------- 学习记录抽屉 ---------------- */
@@ -215,27 +190,22 @@
     $('mask').classList.remove('open');
   }
   function renderDrawer() {
-    var byTpl = {};
-    trail.forEach(function (r) { byTpl[r.tpl] = (byTpl[r.tpl] || 0) + 1; });
-    var explored = Object.keys(byTpl).length;
-    var totalChallenges = engine.all().reduce(function (s, t) { return s + (t.challenges || []).length; }, 0);
-    var doneChallenges = Object.keys(progress).filter(function (k) { return progress[k]; }).length;
+    var stats = data.stats(engine);
     $('statBox').innerHTML =
-      '<div class="stat"><b>' + trail.length + '</b><span>次交互</span></div>' +
-      '<div class="stat"><b>' + explored + '/' + engine.all().length + '</b><span>已探索概念</span></div>' +
-      '<div class="stat"><b>' + doneChallenges + '/' + totalChallenges + '</b><span>完成挑战</span></div>' +
-      '<div class="stat"><b>' + stuckLog.length + '</b><span>卡点记录</span></div>';
+      '<div class="stat"><b>' + stats.interactions + '</b><span>次交互</span></div>' +
+      '<div class="stat"><b>' + stats.explored + '/' + stats.totalConcepts + '</b><span>已探索概念</span></div>' +
+      '<div class="stat"><b>' + stats.challengesDone + '/' + stats.challengesTotal + '</b><span>完成挑战</span></div>' +
+      '<div class="stat"><b>' + stats.stuckCount + '</b><span>卡点记录</span></div>';
 
     $('progressBox').innerHTML = engine.all().map(function (t) {
-      var total = (t.challenges || []).length, done = 0;
-      for (var i = 0; i < total; i++) if (progress[t.id + ':' + i]) done++;
-      var pct = total ? Math.round(done / total * 100) : 0;
+      var b = data.byTpl(t.id, t);
+      var pct = b.challengeTotal ? Math.round(b.challengeDone / b.challengeTotal * 100) : 0;
       return '<div class="prog-row"><span>' + esc(t.name) + '</span>' +
         '<span class="prog-track"><i style="width:' + pct + '%"></i></span>' +
-        '<b>' + done + '/' + total + '</b></div>';
+        '<b>' + b.challengeDone + '/' + b.challengeTotal + '</b></div>';
     }).join('');
 
-    var recent = trail.slice(-18).reverse();
+    var recent = data.timeline(18);
     $('timeline').innerHTML = recent.length ? recent.map(function (r) {
       var d = new Date(r.at);
       var time = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
@@ -324,8 +294,7 @@
     $('mask').addEventListener('click', closeDrawer);
     $('clearLog').addEventListener('click', function () {
       if (!global.confirm('清空本机全部学习记录与挑战进度？此操作不可恢复。')) return;
-      trail = []; stuckLog = []; progress = {};
-      save(K.trail, trail); save(K.stuck, stuckLog); save(K.progress, progress);
+      data.clear();
       buildSidebar(); buildChallenges(engine.get(engine.currentId));
       markActive(engine.currentId); updateBadge(); renderDrawer();
       toast('记录已清空');
@@ -345,5 +314,4 @@
   }
 
   init();
-  TTK.engine = engine; // 便于控制台调试与后续接入 AI 生成
 })(window);

@@ -36,7 +36,7 @@ docs(contracts): 补充 prerequisites 的图谱语义
 
 建议做到的三件事（靠自觉，不是门槛）：
 
-1. 提交前跑 `npm run check`（64 项校验 + 匿名合规扫描）。
+1. 提交前跑 `npm run check`（全量校验 + 匿名合规扫描）。
 2. 改动较大、或涉及公共文件（`contracts/`、`index.html`）时，先在群里说一声，避免互相覆盖。
 3. CI 在 push 和 PR 时自动运行，红了尽快修，别让 `main` 长期挂红。
 

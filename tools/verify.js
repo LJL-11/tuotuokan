@@ -2,7 +2,8 @@
 /* 拖拖看 · 本地与 CI 共用的全量校验
  * 零依赖：只用 Node 内置模块。运行 `npm test` 或 `node tools/verify.js`。
  * 覆盖：语法 / 脚本路径与顺序 / DOM 引用 / 契约 JSON 与样例 / 模板数值 /
- *       DSL 编译挂载 / 表达式白名单 / 图谱与数据层 / 占位模块 / 挑战可达性。
+ *       DSL 编译挂载 / 表达式白名单 / 图谱与数据层 / 占位模块 / 挑战可达性 /
+ *       I13 数据层统一与旧数据迁移 / 应用层装配冒烟。
  */
 'use strict';
 
@@ -205,6 +206,127 @@ TTK.templates.forEach(function (t) {
   ok('挑战可达 ' + t.id + ' [' + hits.join('/') + ']', hits.every(function (h) { return h > 0; }),
     t.challenges.filter(function (c, i) { return !hits[i]; }).map(function (c) { return c.text; }).join(' | '));
 });
+
+console.log('=== 11. I13：数据层统一与旧数据平滑迁移 ===');
+var appI13 = read('src/ui/app.js');
+ok('app.js 不再直接调用 localStorage', !/localStorage/.test(appI13), '');
+ok('app.js 不再自带 save()/load() 存储实现', !/function\s+(save|load)\s*\(/.test(appI13), '');
+ok('app.js 写事件统一走 TTK.data', /data\.log\(/.test(appI13)
+  && /data\.markChallenge\(/.test(appI13) && /data\.addStuck\(/.test(appI13)
+  && !/data\.write\(/.test(appI13), '');
+ok('app.js 通过 TTK.createGraph 建图谱', /TTK\.createGraph\(engine,\s*data\)/.test(appI13), '');
+ok('卡点推荐来自 graph.recommend() 的降序数组', /var\s+suggestions\s*=\s*graph\.recommend\(\)/.test(appI13)
+  && /suggestions\.filter\(/.test(appI13), '');
+
+// 造一个真正可读写的存储桩，重新加载数据层，模拟「老用户带旧数据打开新版页面」
+var store = {};
+global.localStorage = {
+  getItem: function (k) { return Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null; },
+  setItem: function (k, v) { store[k] = String(v); },
+  removeItem: function (k) { delete store[k]; }
+};
+store['ttk.trail'] = JSON.stringify([
+  { at: 1700000000000, tpl: 'overfit', name: '过拟合', reason: 'param', params: { degree: 9 }, insight: '旧版轨迹' }
+]);
+store['ttk.progress'] = JSON.stringify({ 'overfit:0': true });
+store['ttk.stuck'] = JSON.stringify([{ at: 1700000000001, tpl: 'overfit' }]);
+delete require.cache[require.resolve(path.join(ROOT, 'src/learning/data.js'))];
+var reloadError = '';
+try { require(path.join(ROOT, 'src/learning/data.js')); } catch (e) { reloadError = e.message; }
+var D = global.TTK.data;
+ok('数据层在旧数据环境下加载无异常', !reloadError, reloadError);
+ok('旧轨迹 / 进度 / 卡点被接管且不丢失',
+  D.trail().length === 1 && D.trail()[0].insight === '旧版轨迹'
+  && D.progress()['overfit:0'] === true && D.stuck().length === 1, '');
+ok('迁移报告标明三个旧键来源', D.lastMigration.sources.length === 3,
+  D.lastMigration.sources.join(','));
+ok('旧键原值保留（可回滚）', !!store['ttk.trail'] && !!store['ttk.progress'] && !!store['ttk.stuck'], '');
+ok('v1 键已落盘', !!store['ttk.trail.v1'] && !!store['ttk.progress.v1'] && !!store['ttk.stuck.v1'], '');
+ok('migrate 幂等（二次执行不重复写盘）', (function () {
+  var snapshot = store['ttk.trail.v1'];
+  return D.migrate().sources.length === 0 && store['ttk.trail.v1'] === snapshot;
+})(), '');
+ok('data.log 补全字段且不丢旧轨迹', (function () {
+  var e = D.log({ tpl: 'gradient', reason: 'param', params: { lr: 0.1 } });
+  var t = D.trail();
+  return t.length === 2 && t[0].insight === '旧版轨迹' && e.at > 0
+    && e.name === '' && e.params.lr === 0.1;
+})(), '');
+ok('markChallenge 首次 true / 重复 false',
+  D.markChallenge('gradient', 0) === true && D.markChallenge('gradient', 0) === false, '');
+ok('addStuck 追加卡点', D.addStuck('gradient') === 2, '');
+var fullTrail = [];
+for (var q = 0; q < 300; q++) {
+  fullTrail.push({ at: q + 1, tpl: 'overfit', name: '过拟合', reason: 'param', params: {}, insight: '' });
+}
+store['ttk.trail.v1'] = JSON.stringify(fullTrail);
+D.log({ tpl: 'supply', reason: 'select', params: {} });
+ok('轨迹上限 300 且保留最新一条', D.trail().length === 300 && D.trail()[299].tpl === 'supply', '');
+var exported = JSON.parse(D.exportAll(engine));
+ok('导出仍符合 LearningTrace v1', exported.schema === 'ttk.learning-trace.v1'
+  && exported.events.length === 300 && Array.isArray(exported.stuck), '');
+var g2 = TTK.createGraph(engine, D);
+ok('图谱在迁移后的数据上仍给出降序建议', (function () {
+  var r = g2.recommend();
+  return Array.isArray(r) && r.length >= TTK.templates.length
+    && r.every(function (x, i) { return i === 0 || r[i - 1].score >= x.score; });
+})(), '');
+
+console.log('=== 12. 应用层装配冒烟（模拟双击 index.html） ===');
+// 只验证装配与事件链不抛错、数据确实落到 TTK.data；不模拟像素级 DOM / Canvas 行为。
+function El(id) {
+  this.id = id; this.innerHTML = ''; this.textContent = ''; this.className = '';
+  this.value = ''; this.dataset = {}; this.handlers = {}; this.style = {};
+  this.classList = { add: function () {}, remove: function () {}, toggle: function () {} };
+}
+El.prototype.addEventListener = function (evt, fn) {
+  (this.handlers[evt] = this.handlers[evt] || []).push(fn);
+};
+El.prototype.querySelectorAll = function () { return []; };
+El.prototype.querySelector = function () { return null; };
+var els = {};
+global.document = {
+  getElementById: function (id) { return els[id] || (els[id] = new El(id)); },
+  addEventListener: function () {},
+  activeElement: { tagName: 'BODY' }
+};
+global.requestAnimationFrame = function (fn) { fn(); return 1; };
+global.setTimeout = function (fn) { fn(); return 0; };  // 让轨迹节流立即落地
+global.clearTimeout = function () {};
+global.scrollTo = function () {};
+global.confirm = function () { return true; };
+global.location = { hash: '' };
+TTK.Renderer = function () { this.draw = function () {}; }; // 跳过 Canvas 2D，只测装配
+D.clear();
+var appLoadError = '';
+try { require(path.join(ROOT, 'src/ui/app.js')); } catch (e) { appLoadError = e.stack || e.message; }
+ok('app.js 在模拟 DOM 下完成初始化', !appLoadError, appLoadError);
+var appEngine = global.TTK.engine, appGraph = global.TTK.graph;
+ok('应用层导出 engine / graph 实例', !!appEngine && !!appGraph
+  && typeof appGraph.recommend === 'function', '');
+ok('初始化写出首条 select 轨迹', D.trail().length === 1 && D.trail()[0].reason === 'select',
+  JSON.stringify(D.trail()).slice(0, 160));
+var recommendCalls = 0, originRecommend = appGraph.recommend;
+appGraph.recommend = function () { recommendCalls++; return originRecommend.call(appGraph); };
+var stuckBefore = D.stuck().length, stuckErr = '';
+try { els['stuckBtn'].handlers.click[0](); } catch (e) { stuckErr = e.message; }
+ok('「我卡住了」调用 graph.recommend() 且记卡点', !stuckErr
+  && recommendCalls === 1 && D.stuck().length === stuckBefore + 1, stuckErr);
+var t0 = TTK.templates[0];
+appEngine.select(t0.id);
+var d0 = t0.params[0];
+var paramChanged = appEngine.setParam(d0.key, d0.max) || appEngine.setParam(d0.key, d0.min);
+var lastEvent = D.trail()[D.trail().length - 1];
+ok('拖参数触发重算并写出 param 轨迹', !!paramChanged && lastEvent.reason === 'param'
+  && !!lastEvent.params, JSON.stringify(lastEvent).slice(0, 160));
+var switchErr = '';
+try { TTK.templates.forEach(function (t) { appEngine.select(t.id); }); }
+catch (e) { switchErr = e.message; }
+ok('六个沙盒依次切换且渲染链无异常', !switchErr, switchErr);
+var clearErr = '';
+try { els['clearLog'].handlers.click[0](); } catch (e) { clearErr = e.message; }
+ok('清空记录统一走数据层', !clearErr && D.trail().length === 0
+  && Object.keys(D.progress()).length === 0 && D.stuck().length === 0, clearErr);
 
 finish();
 
