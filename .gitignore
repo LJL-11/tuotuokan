@@ -19,6 +19,11 @@ coverage/
 *.log
 *.local.json
 
+# 后端本地库：试用数据属于原始材料，不入库（docs/04 匿名要求）
+services/api/.data/
+output/playwright/
+.playwright-cli/
+
 # 参赛官方材料、成员信息、试用原始数据不放进代码仓库
 *.pdf
 *.docx

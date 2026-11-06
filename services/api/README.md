@@ -1,45 +1,95 @@
-# 后端服务 · 秦
+# 匿名同步服务 · 秦 #I10
 
-## 你要交付什么
+零第三方依赖，使用 Node 内置 HTTP 与文件存储。前端接口仍是 `TTK.data`；不修改 `contracts/`、`index.html` 或队友的引擎与视图。
 
-把 v0 里"只存本机 localStorage"的数据层，换成**可跨设备但完全匿名**的同步服务。
-技术栈不限（Node / Python / Go / Serverless 均可），但必须满足下面三条硬约束：
+阶段结果、验证范围和下次接续步骤见 [I10 阶段交付说明](DELIVERY-I10.md)。
 
-1. **接口形状**：实现 `openapi.yaml` 里的端点，字段与 `contracts/learning-trace.schema.json` 一致。
-2. **前端零改动**：上层只调 `TTK.data`，你要做的是替换适配器，不是让 UI 直接 fetch。
-3. **匿名**：业务数据里不得出现姓名、学校、学号、设备指纹、IP；匿名 ID 随机不可反推。
+## 启动和验收
 
-## 分两步
+在仓库根目录运行（Node >=18）：
 
-### 第一步（#I10）：REST 适配器
-
-前端已经预留：
-
-```js
-TTK.data.remote.configure('https://<your-api>/v1');  // 配置后 POST <url>/events
-TTK.data.remote.configure('');                       // 回到纯本地模式
+```powershell
+npm run api
+npm run check
 ```
 
-`remote.push(event)` 已经做了离线排队（上限 500 条）与联网批量提交。
-你要补的是：服务端接收与去重（`at + tpl + reason`）、`/trace` 导出、`/trace/import` 导入，
-以及让 `TTK.data` 的 `trail()/progress()/stuck()/custom()` 在 REST 模式下走服务端而非本地。
-**未配置 endpoint 时的行为必须与现在完全一致**——这是 CI 与演示的底线。
+服务默认监听 `http://127.0.0.1:8787/v1`。`npm run api:smoke` 可以单独运行 I10 验收，使用随机端口和 `.local/ttk-api-*` 临时库，结束后校验路径并清理，不碰真实学习数据。
 
-### 第二步（#I11）：跨设备同步
+服务数据保存在 `services/api/.data/db.json`，已被 Git 忽略。可用环境变量指定目录、地址和端口：
 
-`POST /auth/anonymous` 生成随机匿名 ID，用户在新设备手动输入即可恢复进度。
-不要引入手机号 / 邮箱 / 第三方登录，那会带来可识别信息，违反匿名评审要求。
+```powershell
+$env:TTK_DB_DIR = 'D:\tuotuokan-data'
+$env:PORT = '8787'
+$env:HOST = '127.0.0.1'
+npm run api
+```
 
-## 明确不要做的事
+一个数据目录只运行一个服务进程。每次写操作先写临时文件再原子替换，保存成功才返回成功响应；保存失败返回 500、内存库回滚。损坏的数据库会阻止启动，不会静默清空。当前 JSON 文件存储适合原型验证，正式多进程部署应更换数据库；不要把试用数据库提交进仓库。
 
-- 不要把模型 API 密钥放在前端。姜的 LLM 调用（#I4）如果需要服务端代理，
-  请在本服务加一个 `/generate` 转发端点，密钥只放环境变量，并在改动说明里写明。
-- 不要改 `contracts/` 里的字段而不走评审流程。
-- 不要把官方参赛表格、成员信息、项目记忆类文件放进仓库或部署产物。
+## 前端接入
 
-## 建议的验收方式
+双击根目录 `index.html`，在开发者工具控制台执行：
 
-1. 起本地服务，`configure('http://127.0.0.1:8787/v1')`，拖动参数后确认 `/events` 收到合法 JSON。
-2. 断网拖动 → 联网 → 队列补发，不丢事件。
-3. `TTK.data.exportAll()` 的导出结果能被 `/trace/import` 原样导入，且 `npm run check:anon` 通过。
-4. 用同一匿名 ID 在另一个浏览器恢复，进度一致。
+```js
+TTK.data.remote.configure('http://127.0.0.1:8787/v1');
+await TTK.data.remote.flush();
+TTK.data.remote.identity(); // 本机匿名 ID，16 位十六进制
+TTK.data.remote.pending();  // 待上传事件数
+TTK.data.remote.lastError;  // 同步失败原因
+TTK.data.remote.storageError; // 本机存储配额 / 权限异常提示
+```
+
+在另一浏览器恢复（将占位值替换为上一浏览器返回的 ID）：
+
+```js
+TTK.data.remote.identity('<16位匿名ID>');
+TTK.data.remote.configure('http://127.0.0.1:8787/v1');
+await TTK.data.remote.flush();
+TTK.data.progress();
+```
+
+`identity()` 不发送网络请求，使用浏览器安全随机数；`POST /auth/anonymous` 也提供服务端创建 / 恢复入口。当前 ID 即匿名访问凭证，只用于演示规模的同步，不代表正式账号认证。无安全随机数的浏览器会明确报错，不使用弱随机数伪装。
+
+配置地址前不发请求；显式 `configure(url)` 后会同步已有的本机记录并保存配置，刷新后自动恢复。清除配置可执行：
+
+```js
+TTK.data.remote.configure('');
+```
+
+**对接付：** 当前同步是控制台开发入口。产品化开放前，需要由界面负责人同步更新“记录只在本机”的提示、展示同步状态，并订阅 `TTK.data.subscribe()` 刷新当前报告；本次未修改视图和入口。
+
+## 同步规则
+
+- `trail()/progress()/stuck()/custom()` 仍同步返回缓存，保持现有上层调用方式。后台上传并读回后，会通过 `subscribe(fn)` 通知缓存更新。
+- 事件按 50 条一批发到 `/events`；有快照改动时使用现有 `/trace/import` 上传挑战进度、卡点与模板，再从 `/trace` 拉回合并结果。
+- 队列、快照按“服务 URL + 匿名 ID”分别持久化，切换身份或服务时不会串数据，旧响应也不会覆盖新身份缓存。
+- 待上传事件不按 500 条静默截断。浏览器存储配额不足时，本次会话使用内存并报告 `storageError`，关闭页面前应导出；这种情况下无法保证刷新恢复。
+- 网络异常、超时、5xx、429、408 保留队列并按 1–30 秒退避重试；`online` 事件立即重试。其他 4xx 保留队列和 `lastError`，修复后手动 `flush()`，不自动删除整批数据。
+- 事件按 `at + tpl + reason` 去重；挑战完成值取逻辑 OR；卡点按 `at + tpl` 去重；模板按 id 保存，同 id 以最后一次成功上传为准。没有远端删除操作。
+- 本机界面保留最近 300 条事件与 200 条卡点；服务端保存已接收的完整历史。`TTK.data.exportAll()` 是本机缓存导出，完整远端历史由 `GET /trace` 获取。
+- `clear()` 清空本机学习记录、取消当前待上传项并关闭同步，远端历史保留。已经送达的请求不能撤回；再次启用同一身份会读回远端历史。
+- 不提供实时推送或定时轮询。跨设备操作后，在另一端刷新或手动 `flush()` 拉取。
+
+## 端点
+
+以 `openapi.yaml` 为准；数据字段直接校验仓库现有两份 JSON Schema，不新增学习轨迹字段。
+
+| 端点 | 行为 |
+|---|---|
+| `GET /health` | 存活探针 |
+| `POST /auth/anonymous` | 创建或恢复 16 位随机匿名 ID；非法 existingId 返回 400 |
+| `POST /events` | 批次完整校验、按身份去重、持久化后返回 202；支持草稿已有的可选 progress / stuck |
+| `GET /trace` | 导出该身份完整 LearningTrace v1 |
+| `POST /trace/import` | 校验后合并事件、进度、卡点与自定义模板；重复导入幂等 |
+| `GET /templates` | 获取该身份模板 |
+| `PUT /templates` | 按 TemplateSpec 校验并保存模板；非法返回 422 |
+
+除身份创建、健康检查与 OPTIONS 外均要求 `X-Anon-Id`。请求体上限 2 MiB。CORS 允许 `Content-Type`、`X-Anon-Id` 和 `file://` 页面的请求；服务不接收凭证 Cookie。
+
+`validate.js` 只实现当前两份契约使用的校验关键字，不是通用 JSON Schema 引擎。更新契约时需同步检查这里。服务端不执行模板公式，客户端挂载模板仍必须经过 `TTK.dsl.validate/compile` 与表达式白名单。
+
+## 验收与后续边界
+
+`npm run check` 包含原有验证、I10 API / 数据层验收和匿名扫描；CI 同样运行三者。新增用例覆盖断网刷新恢复、HTTP 错误保留、发送途中继续写入、身份 / 地址切换、重启持久化、磁盘失败和完整导入导出。
+
+I11 尚需产品入口、匿名身份管理交互与跨设备体验验收；I12 的线上部署未执行。`/generate` 代理等待与姜对齐请求 / 响应，不在本次 I10 中新增，不把模型密钥放进前端。

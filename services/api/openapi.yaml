@@ -20,6 +20,11 @@ tags:
   - name: identity
     description: 匿名身份
 paths:
+  /health:
+    get:
+      summary: 服务存活探针
+      responses:
+        '200': { description: 服务正在运行 }
   /auth/anonymous:
     post:
       tags: [identity]
@@ -46,18 +51,25 @@ paths:
                 type: object
                 required: [anonId]
                 properties:
-                  anonId: { type: string, example: 'a7f3c9e2' }
+                  anonId:
+                    type: string
+                    pattern: '^[0-9a-f]{16}$'
+                    description: 16 位十六进制（64 bit）随机串，由客户端或服务端生成，不可反推个人
+                    example: 'a7f3c9e2b1d04f6c'
                   createdAt: { type: string, format: date-time }
   /events:
     post:
       tags: [events]
       summary: 批量上报学习事件（离线队列联网后一次提交）
-      description: 请求体与 contracts/learning-trace.schema.json 的 event 定义一致；服务端需按 anonId 去重（at + tpl + reason）。
+      description: >-
+        请求体与 contracts/learning-trace.schema.json 的 event 定义一致；服务端需按 anonId 去重（at + tpl + reason）。
+        progress / stuck 为可选扩展字段（v1 兼容）：带上则一并同步挑战进度与卡点，供 #I11 跨设备接续；
+        不带时行为与 v1 原始契约完全一致。
       parameters:
         - in: header
           name: X-Anon-Id
           required: true
-          schema: { type: string }
+          schema: { type: string, pattern: '^[0-9a-f]{16}$' }
       requestBody:
         required: true
         content:
@@ -70,9 +82,34 @@ paths:
                 events:
                   type: array
                   items: { $ref: '#/components/schemas/LearningEvent' }
+                progress:
+                  type: object
+                  additionalProperties: { type: boolean }
+                  description: 可选。键为 '<tplId>:<challengeIndex>'，与服务端已有进度合并
+                stuck:
+                  type: array
+                  description: 可选。卡点记录，按 at + tpl 去重后合并
+                  items:
+                    type: object
+                    required: [at, tpl]
+                    properties:
+                      at: { type: integer, format: int64 }
+                      tpl: { type: string }
       responses:
-        '202': { description: 已接收，异步落库 }
+        '202':
+          description: 校验和持久化成功后确认接收
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted: { type: integer, description: 通过校验的条数 }
+                  added: { type: integer, description: 去重后实际入库条数 }
+                  duplicates: { type: integer }
         '400': { description: 事件格式不合法，返回逐条错误 }
+        '401': { description: X-Anon-Id 缺失或格式非法 }
+        '413': { description: 请求体超过 2 MiB }
+        '500': { description: 持久化失败，客户端应保留队列稍后重试 }
   /trace:
     get:
       tags: [trace]
@@ -92,6 +129,9 @@ paths:
     post:
       tags: [trace]
       summary: 导入一份匿名学习轨迹（与 TTK.data.importAll 输入格式相同）
+      description: >-
+        增量合并：事件按 at + tpl + reason 去重，挑战完成值取逻辑 OR，卡点按 at + tpl 去重。
+        自定义模板按 id 保存，同 id 以最后一次成功上传为准；不支持远端删除。
       parameters:
         - in: header
           name: X-Anon-Id
@@ -112,6 +152,9 @@ paths:
                 properties:
                   ok: { type: boolean }
                   events: { type: integer }
+        '400': { description: 轨迹或自定义模板不符合仓库契约，返回 details 字段路径 }
+        '401': { description: X-Anon-Id 缺失或格式非法 }
+        '500': { description: 持久化失败，未确认保存 }
   /templates:
     get:
       tags: [templates]
@@ -165,7 +208,7 @@ components:
       type: object
       required: [schema, exportedAt, events]
       properties:
-        schema: { type: string, const: 'ttk.learning-trace.v1' }
+        schema: { type: string, enum: ['ttk.learning-trace.v1'] }
         exportedAt: { type: string, format: date-time }
         notice: { type: string }
         summary: { type: object }
