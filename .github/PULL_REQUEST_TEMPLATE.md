@@ -8,7 +8,7 @@
 
 - [ ] 只改了自己 owner 的目录
 - [ ] 改了 `contracts/`（已同步四处：schema / examples / dsl.js / docs/01）
-- [ ] 改了 `index.html` 脚本加载顺序（已和队员 B 对清楚）
+- [ ] 改了 `index.html` 脚本加载顺序（已和曹蕾对清楚）
 - [ ] 属于交叉补位，已和对应 owner 说过
 
 ## 自检清单

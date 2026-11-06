@@ -5,28 +5,28 @@
 
 ## 为什么需要它
 
-队员 A 生成的模板，要能被队员 B 的引擎执行，被队长的渲染器画出来，被队员 C 的后端存下来。
+姜雅文生成的模板，要能被曹蕾的引擎执行，被付嘉一的渲染器画出来，被秦庆泽的后端存下来。
 如果各自凭感觉定义字段，四个人会各写各的、最后拼不起来。契约先行，才能真并行。
 
 ## 四层数据流
 
 ```
-输入层  概念文本/截图/板书 ──(队员A: recognize)──> conceptId | 概念描述
-建模层  概念描述 ──(队员A: generate)──> TemplateSpec JSON  ← contracts/template.schema.json
-编译层  TemplateSpec ──(队员B: TTK.dsl.validate/compile)──> RuntimeTemplate
+输入层  概念文本/截图/板书 ──(姜雅文: recognize)──> conceptId | 概念描述
+建模层  概念描述 ──(姜雅文: generate)──> TemplateSpec JSON  ← contracts/template.schema.json
+编译层  TemplateSpec ──(曹蕾: TTK.dsl.validate/compile)──> RuntimeTemplate
 运行层  RuntimeTemplate.compute(p, M) ──> ComputeResult  ← contracts/README.md 第三节
-表现层  ComputeResult.chart ──(队长: TTK.render)──> Canvas
-闭环层  学习事件 ──(队长采集 / 队员C存储)──> LearningTrace  ← contracts/learning-trace.schema.json
-诊断层  LearningTrace ──(队长+队员C: TTK.Graph)──> 下一个推荐概念
+表现层  ComputeResult.chart ──(付嘉一: TTK.render)──> Canvas
+闭环层  学习事件 ──(付嘉一采集 / 秦庆泽存储)──> LearningTrace  ← contracts/learning-trace.schema.json
+诊断层  LearningTrace ──(付嘉一+秦庆泽: TTK.Graph)──> 下一个推荐概念
 ```
 
 ## 三份契约
 
 | 文件 | 定义什么 | 产出方 | 消费方 |
 |---|---|---|---|
-| `template.schema.json` | AI 生成 / 人工编写的模板 JSON（TemplateSpec） | 队员 A（生成）、队长（工坊手写） | 队员 B 的编译器 |
-| 本文件第三节 | `compute()` 返回值（ComputeResult）与 chart spec | 队员 B 的引擎、队员 A 的模板 | 队长的渲染器与指标卡 |
-| `learning-trace.schema.json` | 学习轨迹事件与匿名导出格式（LearningTrace） | 队长（采集）、队员 C（存储/同步） | 图谱诊断、学习报告、复赛验证数据 |
+| `template.schema.json` | AI 生成 / 人工编写的模板 JSON（TemplateSpec） | 姜雅文（生成）、付嘉一（工坊手写） | 曹蕾的编译器 |
+| 本文件第三节 | `compute()` 返回值（ComputeResult）与 chart spec | 曹蕾的引擎、姜雅文的模板 | 付嘉一的渲染器与指标卡 |
+| `learning-trace.schema.json` | 学习轨迹事件与匿名导出格式（LearningTrace） | 付嘉一（采集）、秦庆泽（存储/同步） | 图谱诊断、学习报告、复赛验证数据 |
 
 `examples/` 放的是**可执行的最小样例**，不是摆设：
 - `spring.json` 必须能被 `TTK.dsl.validate` 通过并编译注册（CI 会检查）。

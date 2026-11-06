@@ -1,36 +1,31 @@
-# 拖拖看 · 目录 ownership（对应 docs/00-分工与协作.md）
+# 拖拖看 · 目录分工对照（对应 docs/00-分工与协作.md）
 #
-# 【姓名占位 · 队内对齐用】
-#   owner_lead  付嘉一   → 队长（产品统筹 + 前端 / 可视化）
-#   owner_a     姜雅文   → 队员 A（算法 / ML）
-#   owner_b     曹蕾     → 队员 B（游戏 / 模拟引擎）
-#   owner_c     秦庆泽   → 队员 C（后端 / 多设备 / 工程）
+# 本仓库不设审批门禁，此文件仅作队内分工备忘，规则行全部保持注释。
+# GitHub CODEOWNERS 只认 @账号；若以后要启用「自动加 reviewer」，
+# 把下面的姓名换成对应 GitHub 账号、删掉行首 "# " 即可（中文姓名不是合法 owner）。
 #
-# ⚠️ 两条硬性说明：
-#  1. GitHub CODEOWNERS 只认 GitHub 账号（@username），中文姓名不是合法 owner。
-#     所以下面规则行暂时保持注释：拿到四人的 GitHub 账号后，把 @OWNER_* 换成 @真实账号，
-#     再删除行首 "# "，规则才会生效，并自动把队长加为 reviewer。
-#  2. 上面的姓名是**私有仓库内的临时协作标注，不属于提交材料**。
-#     初赛提交 / 演示录屏 / 答辩 PPT / 公开仓库 / 对外截图之前，必须删除该段并清理 git 历史，
-#     见 docs/04-参赛合规.md。日常文档、Issue、commit 一律只用代号 A/B/C。
+# 成员：付嘉一（队长）/ 姜雅文 / 曹蕾 / 秦庆泽
+# 技术标识沿用字母代号，不写成中文：
+#   lead = 付嘉一, a = 姜雅文, b = 曹蕾, c = 秦庆泽
+#   —— 用于 owner:a 这类 Issue 标签、feat/a-xxx 这类分支名。
 #
-# 另：本仓库不设审批门禁，CODEOWNERS 只用于在提 PR 时自动加 reviewer（可选功能）。
-#     规则行当前保持注释；需要该功能时，填入真实 GitHub 账号并删除行首 "# " 即可。
+# ⚠️ 姓名仅用于私有仓库内部对齐。初赛提交 / 演示 / 公开前，
+#    按 docs/04-参赛合规.md 全仓替换并清理 git 历史。
 #
 # 语法：每行一个路径模式 + 一个或多个 owner；后出现的规则覆盖前面的。
 #
-# *                              @OWNER_LEAD                                  # 队长
-# /src/core/                     @OWNER_B                                     # 队员 B
-# /src/model/                    @OWNER_A                                     # 队员 A
-# /src/model/dsl.js              @OWNER_B @OWNER_A                             # B 主，A 协同
-# /src/viz/                      @OWNER_LEAD                                  # 队长
-# /src/ui/                       @OWNER_LEAD                                  # 队长
-# /index.html                    @OWNER_LEAD @OWNER_B                          # 队长 + 队员 B
-# /assets/                       @OWNER_LEAD                                  # 队长
-# /src/learning/data.js          @OWNER_C                                     # 队员 C
-# /src/learning/graph.js         @OWNER_LEAD @OWNER_C                          # 队长 + 队员 C
-# /services/api/                 @OWNER_C                                     # 队员 C
-# /tools/                        @OWNER_B @OWNER_C                             # 队员 B + 队员 C
-# /.github/                      @OWNER_LEAD @OWNER_C                          # 队长把关，队员 C 维护
-# /docs/                         @OWNER_LEAD @OWNER_C                          # 队长 + 队员 C
-# /contracts/                    @OWNER_LEAD @OWNER_A @OWNER_B @OWNER_C        # 全员共管，改动需全员评审
+# *                              付嘉一
+# /src/core/                     曹蕾
+# /src/model/                    姜雅文
+# /src/model/dsl.js              曹蕾 + 姜雅文                 # 曹蕾主，姜雅文协同
+# /src/viz/                      付嘉一
+# /src/ui/                       付嘉一
+# /index.html                    付嘉一 + 曹蕾
+# /assets/                       付嘉一
+# /src/learning/data.js          秦庆泽
+# /src/learning/graph.js         付嘉一 + 秦庆泽
+# /services/api/                 秦庆泽
+# /tools/                        曹蕾 + 秦庆泽
+# /.github/                      付嘉一 + 秦庆泽
+# /docs/                         付嘉一 + 秦庆泽
+# /contracts/                    付嘉一 + 姜雅文 + 曹蕾 + 秦庆泽   # 全员共管

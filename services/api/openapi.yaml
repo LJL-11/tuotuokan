@@ -3,7 +3,7 @@ info:
   title: 拖拖看 · 匿名同步服务 API
   version: 1.0.0
   description: >-
-    队员C 负责实现。所有接口只接收匿名数据：不得记录姓名、学校、设备指纹、IP 到业务数据。
+    秦庆泽负责实现。所有接口只接收匿名数据：不得记录姓名、学校、设备指纹、IP 到业务数据。
     学习事件的字段与 contracts/learning-trace.schema.json 完全一致；
     前端 TTK.data.remote 的 base URL 指向本服务的 servers[0].url。
     未配置服务时前端纯 localStorage 运行，行为必须保持一致。

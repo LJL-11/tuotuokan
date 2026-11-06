@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://tuotuokan.local/contracts/learning-trace.schema.json",
   "title": "拖拖看 LearningTrace v1",
-  "description": "匿名学习轨迹的导出格式。TTK.data.exportAll() 产出，TTK.data.importAll() 消费，队员C 的后端 /events 与 /trace 接口按同一结构传输。严禁包含姓名、学校、班级、设备标识、IP 等可识别信息。",
+  "description": "匿名学习轨迹的导出格式。TTK.data.exportAll() 产出，TTK.data.importAll() 消费，秦庆泽的后端 /events 与 /trace 接口按同一结构传输。严禁包含姓名、学校、班级、设备标识、IP 等可识别信息。",
   "type": "object",
   "required": ["schema", "exportedAt", "events"],
   "properties": {
