@@ -27,60 +27,74 @@
       </button>
     </header>
 
-    <main class="layout">
-      <aside class="sidebar">
-        <div class="side-head">
-          <span>概念库</span>
-          <span id="tplCount" class="side-count"></span>
-        </div>
-        <div id="subjectNav" class="subject-nav"></div>
-        <div id="tplList" class="tpl-list"></div>
-        <div class="side-foot">
-          <strong>通用引擎</strong>
-          模板只描述「参数 + 模型 + 指标」，<br>渲染与运行时完全复用。<br>
-          <span class="kbd">← →</span> 可快速切换概念
-        </div>
-      </aside>
+    <nav id="viewNav" class="view-nav" aria-label="视图切换">
+      <button class="view-tab" data-view="graph">概念图谱</button>
+      <button class="view-tab active" data-view="sandbox">交互沙盒</button>
+      <button class="view-tab" data-view="report">学习报告</button>
+      <button class="view-tab" data-view="studio">模板工坊</button>
+    </nav>
 
-      <section class="stage">
-        <div class="stage-head">
-          <div>
-            <h1 id="tplName">—</h1>
-            <p id="tplBrief"></p>
+    <main id="views">
+      <section id="view-graph" class="view view-pane" hidden></section>
+
+      <div id="view-sandbox" class="view layout">
+        <aside class="sidebar">
+          <div class="side-head">
+            <span>概念库</span>
+            <span id="tplCount" class="side-count"></span>
           </div>
-          <span id="tplSubject" class="subject-tag"></span>
-        </div>
-        <div class="canvas-wrap">
-          <canvas id="stage"></canvas>
-        </div>
-        <div class="insight-box">
-          <span class="insight-icon">✦</span>
-          <p id="insight"></p>
-        </div>
-        <div class="concept-box">
-          <span class="box-label">概念说明</span>
-          <p id="conceptNote"></p>
-        </div>
-      </section>
+          <div id="subjectNav" class="subject-nav"></div>
+          <div id="tplList" class="tpl-list"></div>
+          <div class="side-foot">
+            <strong>通用引擎</strong>
+            模板只描述「参数 + 模型 + 指标」，<br>渲染与运行时完全复用。<br>
+            <span class="kbd">← →</span> 可快速切换概念
+          </div>
+        </aside>
 
-      <aside class="panel">
-        <div class="panel-head">
-          <span>参数 <em>拖动即时重算</em></span>
-          <button id="resetBtn" class="btn tiny">重置</button>
-        </div>
-        <div id="paramList" class="param-list"></div>
+        <section class="stage">
+          <div class="stage-head">
+            <div>
+              <h1 id="tplName">—</h1>
+              <p id="tplBrief"></p>
+            </div>
+            <span id="tplSubject" class="subject-tag"></span>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="stage"></canvas>
+          </div>
+          <div class="insight-box">
+            <span class="insight-icon">✦</span>
+            <p id="insight"></p>
+          </div>
+          <div class="concept-box">
+            <span class="box-label">概念说明</span>
+            <p id="conceptNote"></p>
+          </div>
+        </section>
 
-        <div class="panel-head"><span>观测指标</span></div>
-        <div id="metricList" class="metrics"></div>
+        <aside class="panel">
+          <div class="panel-head">
+            <span>参数 <em>拖动即时重算</em></span>
+            <button id="resetBtn" class="btn tiny">重置</button>
+          </div>
+          <div id="paramList" class="param-list"></div>
 
-        <div class="panel-head"><span>试试看 <em id="challengeCount"></em></span></div>
-        <div id="challengeList" class="challenges"></div>
+          <div class="panel-head"><span>观测指标</span></div>
+          <div id="metricList" class="metrics"></div>
 
-        <button id="stuckBtn" class="stuck-btn">
-          <span>我卡住了，给我推一个前置概念</span><span class="arrow">→</span>
-        </button>
-        <div class="panel-foot">记录仅保存在本机浏览器，不上传</div>
-      </aside>
+          <div class="panel-head"><span>试试看 <em id="challengeCount"></em></span></div>
+          <div id="challengeList" class="challenges"></div>
+
+          <button id="stuckBtn" class="stuck-btn">
+            <span>我卡住了，给我推一个前置概念</span><span class="arrow">→</span>
+          </button>
+          <div class="panel-foot">记录仅保存在本机浏览器，不上传</div>
+        </aside>
+      </div>
+
+      <section id="view-report" class="view view-pane" hidden></section>
+      <section id="view-studio" class="view view-pane" hidden></section>
     </main>
   </div>
 
@@ -104,7 +118,8 @@
   </aside>
 
   <!-- 传统 script 标签：双击 index.html 即可运行，file:// 下无 CORS 问题。
-       顺序 = 依赖顺序，新增模块请按分层追加；各目录 owner 见 README / CODEOWNERS。 -->
+       顺序 = 依赖顺序，新增模块请按分层追加；各目录 owner 见 README / CODEOWNERS。
+       四视图已由 #I1 接入；报告 / 工坊 / 图谱的精修分别见 #I2 / #I3 / #I14。 -->
   <script src="src/core/engine.js"></script>      <!-- 曹：状态与数学工具 -->
   <script src="src/core/expr.js"></script>        <!-- 曹：安全表达式求值 -->
   <script src="src/model/dsl.js"></script>        <!-- 姜：模板 DSL 编译 -->
@@ -113,9 +128,7 @@
   <script src="src/model/templates.js"></script>  <!-- 姜：精修概念模板库 -->
   <script src="src/learning/data.js"></script>   <!-- 秦：数据层适配器 -->
   <script src="src/learning/graph.js"></script>  <!-- 付+秦：概念图谱 / 诊断 -->
-  <script src="src/ui/views.js"></script>        <!-- 付：四视图路由（骨架，加载无副作用） -->
+  <script src="src/ui/views.js"></script>        <!-- 付：四视图路由与最小可用视图 -->
   <script src="src/ui/app.js"></script>          <!-- 付：页面交互与装配 -->
-  <!-- 骨架模块已加载，可在控制台直接调试 TTK.views / TTK.generator；
-       视图实现与 UI 接入尚未完成，见 docs/02-路线图与任务看板.md 的 #I1 #I4 -->
 </body>
 </html>

@@ -225,6 +225,9 @@
     if (raf) return;
     raf = global.requestAnimationFrame(function () {
       raf = null;
+      // 隐藏期间画布尺寸为 0，跳过绘制；切回沙盒时由视图 change 事件补一次
+      var view = TTK.views.current();
+      if (view && view.id !== 'sandbox') return;
       renderer.draw(state.spec.chart);
     });
   }
@@ -258,7 +261,7 @@
     var hit = engine.findByQuery(q);
     if (hit) {
       $('askHint').textContent = '';
-      select(hit.id);
+      TTK.views.go('sandbox', hit.id); // 顶部输入框全局可见，命中后回到沙盒视图
       toast('已匹配到「' + hit.name + '」沙盒', 'ok');
     } else {
       $('askHint').textContent = '暂未收录「' + q + '」。AI 生成接口已预留：接入大模型后按同一 schema 输出参数与模型，即可直接挂载到引擎（格式见 contracts/README.md 与 docs/01-接口契约.md）。';
@@ -270,13 +273,29 @@
     switching = true;
     if (!engine.select(id)) { switching = false; return; }
     switching = false;
-    global.location.hash = id;
+    TTK.views.setTpl(id); // hash 由路由层统一生成，保留当前视图
     global.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function init() {
     buildSidebar();
     updateBadge();
+    Array.prototype.forEach.call(document.querySelectorAll('#viewNav .view-tab'), function (btn) {
+      btn.addEventListener('click', function () { TTK.views.go(btn.getAttribute('data-view')); });
+    });
+    TTK.views.on(function (evt, payload) {
+      if (evt !== 'change' || !payload || !payload.route) return;
+      // 浏览器前进 / 后退带回了模板 id，静默切换，避免重复写 hash
+      if (payload.tpl && engine.get(payload.tpl) && payload.tpl !== engine.currentId) {
+        switching = true;
+        engine.select(payload.tpl);
+        switching = false;
+      }
+      // 从其他视图切回来时补一次重绘（隐藏期间跳过过绘制）
+      if (payload.route.id === 'sandbox' && engine.state) {
+        global.requestAnimationFrame(function () { renderer.draw(engine.state.spec.chart); });
+      }
+    });
     $('askBtn').addEventListener('click', ask);
     $('conceptInput').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') ask();
@@ -301,7 +320,8 @@
     });
     document.addEventListener('keydown', function (e) {
       if (/INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
-      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      var activeView = TTK.views.current();
+      if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && (!activeView || activeView.id === 'sandbox')) {
         var list = engine.all(), idx = list.findIndex(function (t) { return t.id === engine.currentId; });
         var next = e.key === 'ArrowRight' ? (idx + 1) % list.length : (idx - 1 + list.length) % list.length;
         select(list[next].id);
@@ -309,8 +329,8 @@
       if (e.key === 'Escape') closeDrawer();
     });
 
-    var hash = global.location.hash.replace('#', '');
-    select(engine.get(hash) ? hash : engine.all()[0].id);
+    var initial = TTK.views.start(); // 解析 hash，决定刷新后停在哪个视图
+    select(engine.get(initial.tpl) ? initial.tpl : engine.all()[0].id);
   }
 
   init();

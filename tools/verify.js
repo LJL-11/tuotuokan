@@ -3,7 +3,7 @@
  * 零依赖：只用 Node 内置模块。运行 `npm test` 或 `node tools/verify.js`。
  * 覆盖：语法 / 脚本路径与顺序 / DOM 引用 / 契约 JSON 与样例 / 模板数值 /
  *       DSL 编译挂载 / 表达式白名单 / 图谱与数据层 / 占位模块 / 挑战可达性 /
- *       I13 数据层统一与旧数据迁移 / 应用层装配冒烟。
+ *       I13 数据层统一与旧数据迁移 / 应用层装配冒烟 / I1 四视图路由。
  */
 'use strict';
 
@@ -183,8 +183,10 @@ ok('图谱推荐返回按分数降序的建议列表', Array.isArray(rec) && rec
 ok('图谱边结构合法', graph.edges().every(function (e) { return e.from && e.to; }), '');
 var imp = TTK.data.importAll(JSON.stringify(parsed['contracts/examples/trace.json']));
 ok('trace 样例可被 importAll 导入', imp.ok && imp.events === 2, JSON.stringify(imp));
-ok('views 骨架导出四视图契约', TTK.views.routes().length === 4 && typeof TTK.views.register === 'function', '');
-ok('views 未实现时不会假装挂载成功', TTK.views.mount('report') === false, '');
+ok('views 导出四视图契约', TTK.views.routes().length === 4
+  && typeof TTK.views.register === 'function' && typeof TTK.views.go === 'function'
+  && typeof TTK.views.start === 'function', '');
+ok('未知视图不会假装挂载成功', TTK.views.mount('__unknown__') === false, '');
 
 console.log('=== 10. 引导挑战可达性（固定种子，防回归） ===');
 var rand = TTK.math.rng(20261106);
@@ -284,9 +286,11 @@ El.prototype.addEventListener = function (evt, fn) {
 };
 El.prototype.querySelectorAll = function () { return []; };
 El.prototype.querySelector = function () { return null; };
+El.prototype.getAttribute = function (k) { return this.dataset[k] || null; };
 var els = {};
 global.document = {
   getElementById: function (id) { return els[id] || (els[id] = new El(id)); },
+  querySelectorAll: function () { return []; },
   addEventListener: function () {},
   activeElement: { tagName: 'BODY' }
 };
@@ -327,6 +331,57 @@ var clearErr = '';
 try { els['clearLog'].handlers.click[0](); } catch (e) { clearErr = e.message; }
 ok('清空记录统一走数据层', !clearErr && D.trail().length === 0
   && Object.keys(D.progress()).length === 0 && D.stuck().length === 0, clearErr);
+
+console.log('=== 13. I1：四视图路由与窄屏适配 ===');
+var html13 = read('index.html');
+var viewIds13 = ['graph', 'sandbox', 'report', 'studio'];
+ok('index.html 有四个视图容器', viewIds13.every(function (v) {
+  return html13.indexOf('id="view-' + v + '"') >= 0;
+}), '');
+ok('index.html 有四个导航 tab', (html13.match(/class="view-tab/g) || []).length === 4, '');
+var viewsSrc13 = read('src/ui/views.js');
+ok('路由层不依赖模块加载 / 本地请求', viewsSrc13.indexOf('import ') < 0
+  && viewsSrc13.indexOf('export ') < 0 && viewsSrc13.indexOf('fetch(') < 0, '');
+var css13 = read('assets/style.css');
+ok('窄屏样式覆盖导航与视图容器', css13.indexOf('.view-nav') >= 0
+  && css13.indexOf('overflow-x: auto') >= 0 && css13.indexOf('.view[hidden]') >= 0
+  && css13.indexOf('@media (max-width: 560px)') >= 0, '');
+var V = global.TTK.views;
+ok('四个视图均已注册可挂载', V.routes().length === 4
+  && V.routes().every(function (r) { return typeof r.mount === 'function'; }), '');
+ok('初始停在沙盒视图', !!V.current() && V.current().id === 'sandbox',
+  JSON.stringify(V.current()));
+var visited13 = [], goErr13 = '';
+try {
+  ['graph', 'report', 'studio', 'sandbox'].forEach(function (id) {
+    visited13.push(V.go(id) && V.current().id);
+  });
+} catch (e) { goErr13 = e.message; }
+ok('四视图可依次切换', !goErr13 && visited13.join(',') === 'graph,report,studio,sandbox',
+  goErr13 || visited13.join(','));
+ok('切换同步写 hash', String(global.location.hash).indexOf('#sandbox/') === 0,
+  String(global.location.hash));
+ok('非当前视图被隐藏', els['view-graph'].hidden === true && els['view-sandbox'].hidden === false,
+  String(els['view-graph'].hidden) + '/' + String(els['view-sandbox'].hidden));
+global.location.hash = '#report/gradient';
+var hashErr13 = '';
+try { global.onhashchange(); } catch (e) { hashErr13 = e.message; }
+ok('hashchange 恢复视图与概念', !hashErr13 && V.current().id === 'report'
+  && TTK.engine.currentId === 'gradient', hashErr13 || String(TTK.engine.currentId));
+global.location.hash = '#studio/supply';
+delete require.cache[require.resolve(path.join(ROOT, 'src/ui/views.js'))];
+require(path.join(ROOT, 'src/ui/views.js'));
+var V2 = global.TTK.views;
+V2.start();
+ok('刷新后停在当前视图', V2.current().id === 'studio' && V2.parseHash().tpl === 'supply',
+  JSON.stringify(V2.parseHash()));
+V2.go('sandbox');
+var t13 = TTK.templates[0], d13 = t13.params[0];
+TTK.engine.select(t13.id);
+var paramOk13 = TTK.engine.setParam(d13.key, d13.max) || TTK.engine.setParam(d13.key, d13.min);
+var last13 = D.trail()[D.trail().length - 1];
+ok('四视图切换后拖动 / 指标 / 轨迹仍正常', !!paramOk13 && last13.reason === 'param'
+  && TTK.engine.state.spec.metrics.length > 0, JSON.stringify(last13).slice(0, 160));
 
 finish();
 
