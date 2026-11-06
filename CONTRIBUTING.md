@@ -28,6 +28,14 @@ docs(contracts): 补充 prerequisites 的图谱语义
 
 一个分支只做一件事；不要顺手格式化别人的文件。
 
+## 三条不可协商的规则
+
+1. **队员不得直接 push `main`**，也不得点 Merge 合并自己的或他人的 PR。
+2. **每个 PR 必须队长 approve + CI 全绿**才具备合并资格；涉及 `contracts/` 还要全部受影响方 approve。
+3. **只有队长执行合并**，且只用 Squash merge。队长自己改东西同样走 PR。
+
+这三条由 GitHub 分支保护强制（设置见 `docs/00` 第五节），不是口头约定。
+
 ## 提 PR 前自检
 
 - [ ] `npm test` 通过（语法、脚本路径、DOM 引用、模板数值、DSL、表达式安全、契约样例）
@@ -35,7 +43,8 @@ docs(contracts): 补充 prerequisites 的图谱语义
 - [ ] **双击 `index.html`** 真的能跑，且原有 6 个沙盒未被破坏
 - [ ] 没有把 `Math.random()` 写进模板（要用 `TTK.math.rng(seed)`）
 - [ ] 没有在模板里操作 DOM / Canvas / localStorage / 网络
-- [ ] 没有在前端写密钥、账号、真实姓名、校名
+- [ ] 没有在前端写密钥、账号、校名
+- [ ] 我没有直接 push `main`，也不会自己点 Merge（等队长）
 - [ ] 涉及 `contracts/` 的改动已同步 JSON Schema、examples、dsl.js 和 `docs/01-接口契约.md`
 - [ ] 新增模板的每个挑战都实际拖到过（不是只看代码觉得可达）
 
@@ -43,13 +52,15 @@ docs(contracts): 补充 prerequisites 的图谱语义
 
 | 改动范围 | 需要谁 approve |
 |---|---|
+| **任何 PR（无例外）** | **队长**；队长同时是唯一合并人 |
 | 自己 owner 的目录 | 队长 |
 | `contracts/` | 队长 + 所有受影响的队员 |
 | `index.html` 脚本顺序 | 队长 + 队员 B |
 | `tools/`、`.github/` | 队长 + 队员 C |
 | 其他人的目录 | 先在该目录 owner 的 issue 里说明，别直接提 |
 
-合并用 **Squash merge**，`main` 必须保持 CI 全绿。
+PR 被驳回或新提交推送后，旧 approve 作废，需要重新 review。
+合并用 **Squash merge**，`main` 必须保持 CI 全绿且禁止 force push。
 
 ## 改契约的正确姿势
 
@@ -63,4 +74,5 @@ docs(contracts): 补充 prerequisites 的图谱语义
 
 - 代码标识符、分支、commit 用英文；界面文案、文档、注释用简体中文。
 - 模板 `id` 小写英文、`params[].key` 字母开头，且不得与保留名 `x/p/M/Math/PI/E/m` 冲突。
-- 一律用队员代号，不写真实姓名（见 [`docs/04-参赛合规.md`](docs/04-参赛合规.md)）。
+- 日常一律用队员代号 A/B/C。`.github/CODEOWNERS` 顶部的姓名是私有仓库内的临时占位标注，
+  提交材料 / 演示 / 公开前必须清理（见 [`docs/04-参赛合规.md`](docs/04-参赛合规.md)）。

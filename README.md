@@ -58,31 +58,17 @@ npm run check       # 两个都跑
 
 接口细节见 [`docs/01-接口契约.md`](docs/01-接口契约.md)，上手见 [`docs/03-开发环境.md`](docs/03-开发环境.md)。
 
-## 建仓库与推送（队长操作）
+## 协作规则
 
-1. 在 GitHub 建**私有**仓库，建议名 `tuotuokan`，**不要勾选初始化 README**。
-2. 把四位成员的账号填进 [`.github/CODEOWNERS`](.github/CODEOWNERS) 并取消注释。
-3. 关联远程并推送（本目录已完成 `git init` 与初始提交，`init/commit` 两步可跳过）：
-
-```bash
-git init                      # 已初始化则跳过
-git add . && git commit -m "chore: initial framework"
-git branch -M main
-git remote add origin https://github.com/<你的账号>/tuotuokan.git
-git push -u origin main
-```
-
-4. 在 Issues 里按 `docs/02` 建任务，贴 owner 标签，把 #I13 和 #I1 排在最前。
-
-## 协作规则（简版）
-
-`main` 只接受 PR（Squash merge）→ 分支 `feat/a-xxx` → commit `feat(model): 一句话`
-→ 提 PR 前跑 `npm run check` → 涉及 `contracts/` 需队长 + 受影响方 approve。
-完整规则见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+- **`main` 是受保护分支：队员一律不得直接 push，也不得自行合并 PR**，只能从 `feat/<代号>-<短名>` 提 PR。
+- 每个 PR 必须 **CI 全绿 + 队长 approve** 才能合并；**只有队长执行合并**，且只用 Squash merge。
+- 提 PR 前跑 `npm run check`；涉及 `contracts/` 需队长 + 受影响方 approve。
+- 上面这些由 GitHub 分支保护规则强制执行，不是口头约定。队长开启步骤见 [`docs/00-分工与协作.md`](docs/00-分工与协作.md) 第五节。
+- commit 格式 `feat(model): 一句话`。完整规则见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
 
 ## 两条硬规矩
 
-- **匿名评审**：所有提交材料、演示、公开内容不得出现校名、成员姓名、指导老师姓名或可识别信息。仓库内一律用代号 A/B/C，建议保持私有。提交前跑 `npm run check:anon`，详见 [`docs/04-参赛合规.md`](docs/04-参赛合规.md)。
+- **匿名评审**：提交材料、演示视频、答辩 PPT、界面文案与任何对外内容不得出现校名、成员姓名、指导老师姓名或可识别信息。仓库保持私有，日常一律用代号 A/B/C；`.github/CODEOWNERS` 里的姓名只是队内临时占位标注，**提交前必须清理**（见 [`docs/04-参赛合规.md`](docs/04-参赛合规.md)）。提交前跑 `npm run check:anon`。
 - **原创**：核心工作须在本次大赛期间完成，未参加其他国家级公开比赛；第三方依赖与 AI 使用情况如实记录。当前 v0 零第三方依赖。
 
 关键时间：初赛作品提交截止 **2027.01.15 18:00**；全国决赛 **2027.05.22–23**。

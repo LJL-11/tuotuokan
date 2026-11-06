@@ -93,5 +93,11 @@ if (hits.length) {
   process.exit(1);
 }
 console.log('PASS：未发现邮箱 / 手机号 / 身份证号 / 本机敏感词。');
+try {
+  var owners = fs.readFileSync(path.join(ROOT, '.github', 'CODEOWNERS'), 'utf8');
+  if (owners.indexOf('【姓名占位') >= 0) {
+    console.log('INFO：.github/CODEOWNERS 含姓名占位段（仅私有仓库内对齐用），提交 / 演示 / 公开前必须删除，见 docs/04。');
+  }
+} catch (e) { /* 文件不存在时忽略 */ }
 console.log('提醒：账号名、提交作者名、演示录屏中的个人信息仍需人工复核。');
 process.exit(0);

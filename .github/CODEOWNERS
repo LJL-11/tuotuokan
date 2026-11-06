@@ -1,24 +1,36 @@
 # 拖拖看 · 目录 ownership（对应 docs/00-分工与协作.md）
 #
-# ⚠️ 仓库建立后的第一件事：把 @OWNER_* 替换成四位成员的真实 GitHub 账号，
-#    并删除下面配置行开头的 "# "，本文件才会生效。
-#    未替换前全部是注释，是刻意为之——避免把占位账号写进评审规则。
-#    注意：账号名、提交作者名也可能泄露身份，公开仓库前请复核 docs/04-参赛合规.md。
+# 【姓名占位 · 队内对齐用】
+#   owner_lead  付嘉一   → 队长（产品统筹 + 前端 / 可视化）
+#   owner_a     姜雅文   → 队员 A（算法 / ML）
+#   owner_b     曹蕾     → 队员 B（游戏 / 模拟引擎）
+#   owner_c     秦庆泽   → 队员 C（后端 / 多设备 / 工程）
+#
+# ⚠️ 两条硬性说明：
+#  1. GitHub CODEOWNERS 只认 GitHub 账号（@username），中文姓名不是合法 owner。
+#     所以下面规则行暂时保持注释：拿到四人的 GitHub 账号后，把 @OWNER_* 换成 @真实账号，
+#     再删除行首 "# "，规则才会生效，并自动把队长加为 reviewer。
+#  2. 上面的姓名是**私有仓库内的临时协作标注，不属于提交材料**。
+#     初赛提交 / 演示录屏 / 答辩 PPT / 公开仓库 / 对外截图之前，必须删除该段并清理 git 历史，
+#     见 docs/04-参赛合规.md。日常文档、Issue、commit 一律只用代号 A/B/C。
+#
+# 另：CODEOWNERS 不能阻止直接 push。强制「先 PR 后合并」靠分支保护，
+#     设置步骤见 docs/00-分工与协作.md 第五节。
 #
 # 语法：每行一个路径模式 + 一个或多个 owner；后出现的规则覆盖前面的。
 #
-# *                              @OWNER_LEAD
-# /src/core/                     @OWNER_B
-# /src/model/                    @OWNER_A
-# /src/model/dsl.js              @OWNER_B @OWNER_A
-# /src/viz/                      @OWNER_LEAD
-# /src/ui/                       @OWNER_LEAD
-# /index.html                    @OWNER_LEAD @OWNER_B
-# /assets/                       @OWNER_LEAD
-# /src/learning/data.js          @OWNER_C
-# /src/learning/graph.js         @OWNER_LEAD @OWNER_C
-# /services/api/                 @OWNER_C
-# /tools/                        @OWNER_B @OWNER_C
-# /.github/                      @OWNER_C
-# /docs/                         @OWNER_LEAD @OWNER_C
-# /contracts/                    @OWNER_LEAD @OWNER_A @OWNER_B @OWNER_C
+# *                              @OWNER_LEAD                                  # 队长
+# /src/core/                     @OWNER_B                                     # 队员 B
+# /src/model/                    @OWNER_A                                     # 队员 A
+# /src/model/dsl.js              @OWNER_B @OWNER_A                             # B 主，A 协同
+# /src/viz/                      @OWNER_LEAD                                  # 队长
+# /src/ui/                       @OWNER_LEAD                                  # 队长
+# /index.html                    @OWNER_LEAD @OWNER_B                          # 队长 + 队员 B
+# /assets/                       @OWNER_LEAD                                  # 队长
+# /src/learning/data.js          @OWNER_C                                     # 队员 C
+# /src/learning/graph.js         @OWNER_LEAD @OWNER_C                          # 队长 + 队员 C
+# /services/api/                 @OWNER_C                                     # 队员 C
+# /tools/                        @OWNER_B @OWNER_C                             # 队员 B + 队员 C
+# /.github/                      @OWNER_LEAD @OWNER_C                          # 队长把关，队员 C 维护
+# /docs/                         @OWNER_LEAD @OWNER_C                          # 队长 + 队员 C
+# /contracts/                    @OWNER_LEAD @OWNER_A @OWNER_B @OWNER_C        # 全员共管，改动需全员评审
