@@ -1,0 +1,6 @@
+# 跨系统协作：仓库内统一 LF，避免 Windows / macOS 换行符造成整文件 diff
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.pdf binary
