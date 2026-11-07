@@ -189,7 +189,7 @@
       '3. expr 只允许数学表达式：禁止赋值、语句、字符串、下标、对象、函数定义和任何全局访问。运行时会走受限解析器，不执行 JS。',
       '4. series 1-4 条，metrics 0-5 个，challenges 0-3 个（challenge.expr 是返回布尔的表达式）。',
       '5. brief/concept/insight 用简体中文，面向没学过该概念的大学生，讲清「拖哪个参数会看到什么」。',
-      '6. id 用小写英文唯一的短标识；prerequisites 填已有模板 id（如 oscillation / gradient / overfit / supply / projectile / epidemic），没有就留空数组。'
+      '6. id 用小写英文唯一的短标识；prerequisites 填已有模板 id（如 oscillation / gradient / overfit / supply / projectile / epidemic / bayes / compound / decay / logistic），没有就留空数组。'
     ].join('\n');
   }
 

@@ -134,7 +134,30 @@ function issuesOf(r) {
 
 var engine = TTK.createEngine();
 TTK.templates.forEach(function (t) { engine.register(t); });
-ok('内置模板 >= 6', TTK.templates.length >= 6, '实际 ' + TTK.templates.length);
+ok('内置模板 >= 10', TTK.templates.length >= 10, '实际 ' + TTK.templates.length);
+var byId6 = {};
+TTK.templates.forEach(function (t) { byId6[t.id] = t; });
+['bayes', 'compound', 'decay', 'logistic'].forEach(function (id) {
+  ok('新模板已注册 ' + id, !!byId6[id] && Array.isArray(byId6[id].prerequisites) && byId6[id].challenges.length >= 1, '');
+});
+ok('新模板覆盖统计 / 金融 / 生态', ['统计学', '金融学', '生态学'].every(function (s) {
+  return TTK.templates.some(function (t) { return t.subject === s; });
+}), '');
+ok('每个模板都声明先修数组', TTK.templates.every(function (t) { return Array.isArray(t.prerequisites); }), '');
+ok('衰变先修单摆、传染病先修逻辑斯谛',
+  byId6.decay.prerequisites.indexOf('oscillation') >= 0
+  && byId6.epidemic.prerequisites.indexOf('logistic') >= 0, '');
+ok('复利和逻辑斯谛先修衰变，过拟合可回溯贝叶斯',
+  byId6.compound.prerequisites.indexOf('decay') >= 0
+  && byId6.logistic.prerequisites.indexOf('decay') >= 0
+  && byId6.overfit.prerequisites.indexOf('bayes') >= 0, '');
+['bayes', 'compound', 'decay', 'logistic'].forEach(function (id) {
+  var spec6 = byId6[id].compute(engine.defaults(byId6[id]), TTK.math);
+  var panels6 = spec6.chart && spec6.chart.panels ? spec6.chart.panels.length : 0;
+  ok(id + ' 含双面板、指标和两个挑战', panels6 >= 2
+    && (spec6.metrics || []).length >= 1 && byId6[id].challenges.length >= 2,
+    'panels=' + panels6 + ' metrics=' + ((spec6.metrics || []).length));
+});
 TTK.templates.forEach(function (t) {
   var def = engine.defaults(t), probs = [];
   try { probs = probs.concat(issuesOf(t.compute(def, TTK.math))); }
@@ -432,7 +455,7 @@ ok('拖参数触发重算并写出 param 轨迹', !!paramChanged && lastEvent.re
 var switchErr = '';
 try { TTK.templates.forEach(function (t) { appEngine.select(t.id); }); }
 catch (e) { switchErr = e.message; }
-ok('六个沙盒依次切换且渲染链无异常', !switchErr, switchErr);
+ok('全部内置沙盒依次切换且渲染链无异常', !switchErr, switchErr);
 var clearErr = '';
 try { els['clearLog'].handlers.click[0](); } catch (e) { clearErr = e.message; }
 ok('清空记录统一走数据层', !clearErr && D.trail().length === 0
@@ -489,7 +512,213 @@ var last13 = D.trail()[D.trail().length - 1];
 ok('四视图切换后拖动 / 指标 / 轨迹仍正常', !!paramOk13 && last13.reason === 'param'
   && TTK.engine.state.spec.metrics.length > 0, JSON.stringify(last13).slice(0, 160));
 
-finish();
+runI4(finish);
+
+function pngWithText(text) {
+  function utf8(value) {
+    var raw = unescape(encodeURIComponent(value));
+    var out = [];
+    var i;
+    for (i = 0; i < raw.length; i++) out.push(raw.charCodeAt(i));
+    return out;
+  }
+  function chunk(type, data) {
+    var len = data.length;
+    var head = [(len >>> 24) & 255, (len >>> 16) & 255, (len >>> 8) & 255, len & 255];
+    var kind = [type.charCodeAt(0), type.charCodeAt(1), type.charCodeAt(2), type.charCodeAt(3)];
+    return head.concat(kind, data, [0, 0, 0, 0]);
+  }
+  var payload = utf8('Comment').concat([0, 0, 0, 0, 0], utf8(text));
+  var sig = [137, 80, 78, 71, 13, 10, 26, 10];
+  return sig.concat(chunk('iTXt', payload), chunk('IEND', []));
+}
+
+function resonanceSpec() {
+  return {
+    id: 'damped_resonance',
+    name: '阻尼共振',
+    subject: '物理学',
+    brief: '驱动力频率靠近固有频率时，振幅为什么会冲高？',
+    concept: '稳态振幅在驱动频率接近固有频率时最大，阻尼越大，峰越矮、越宽。',
+    keywords: ['阻尼共振', '共振'],
+    prerequisites: ['oscillation'],
+    x: { min: 0, max: 3, label: '频率比', yLabel: '振幅', samples: 80 },
+    params: [
+      { key: 'g', label: '阻尼比', min: 0.05, max: 0.8, step: 0.05, default: 0.2, unit: '', hint: '越大峰越矮' }
+    ],
+    series: [
+      { name: '稳态振幅', expr: '1 / Math.sqrt((1 - x * x) * (1 - x * x) + 4 * p.g * p.g * x * x)', color: '#4f46e5' }
+    ],
+    metrics: [{ label: '阻尼比', expr: 'p.g', unit: '' }],
+    insight: '把阻尼比调小，曲线在频率比等于 1 附近会冲得更高。',
+    challenges: [{ text: '把阻尼比调到 0.1 以下', expr: 'p.g <= 0.1' }]
+  };
+}
+
+function runI4(done) {
+  console.log('=== 14. I4：LLM 生成、校验、重试与断网降级 ===');
+  function restore() { TTK.generator.configure({ endpoint: '' }); }
+  try {
+    var genSrc = read('src/model/generator.js').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    ok('生成器不把模型文本当代码执行', !/\beval\s*\(/.test(genSrc) && !/new\s+Function\s*\(/.test(genSrc), '');
+    ok('输入框走 generator，草稿文案不谎称 AI',
+      /TTK\.generator\.generate\(/.test(appSrc) && /本地草稿/.test(appSrc) && /不是 AI 生成/.test(appSrc), '');
+
+    var fetched = 0;
+    var prevFetch = global.fetch;
+    global.fetch = function () { fetched += 1; return Promise.reject(new Error('不应发出')); };
+    var offline = TTK.generator.generate('阻尼共振');
+    var offlineOk = offline && offline.ai === false && offline.source === 'local-draft' && fetched === 0;
+    var offlineCompiled = false, offlineErr = '';
+    try {
+      var ov = TTK.dsl.validate(offline.spec, []);
+      offlineCompiled = !!(ov.ok && TTK.dsl.compile(offline.spec, ov));
+    } catch (e) { offlineErr = e.message; }
+    ok('未配置代理时阻尼共振是可编译本地草稿且不发请求', offlineOk && offlineCompiled, offlineErr);
+    global.fetch = prevFetch;
+
+    var known = TTK.generator.recognize('过拟合');
+    var damp = TTK.generator.recognize('阻尼');
+    var longTail = TTK.generator.recognize('阻尼共振');
+    ok('已收录概念仍能识别', known.ok && known.conceptId === 'overfit' && damp.ok && damp.conceptId === 'oscillation',
+      JSON.stringify({ known: known.conceptId, damp: damp.conceptId }));
+    ok('阻尼共振不被短关键词吞掉', longTail.ok === false && longTail.message, longTail.message || '');
+
+    var mediaCalls = 0;
+    TTK.generator.configure({
+      endpoint: 'https://proxy.local/generate',
+      transport: function () { mediaCalls += 1; return resonanceSpec(); }
+    });
+    var named = TTK.generator.recognize({ image: { name: '贝叶斯.png' } });
+    var missed = TTK.generator.recognize({ text: '完全未知xyz', image: { name: 'unknown-diagram.png' } });
+    ok('图片文件名可在本机匹配且不上传', named.ok && named.conceptId === 'bayes'
+      && named.message.indexOf('没有上传') >= 0 && mediaCalls === 0, named.message || '');
+    ok('认不出的图片给出明确提示且不上传', missed.ok === false && missed.unsupported === true
+      && missed.message && mediaCalls === 0, missed.message || '');
+    ok('关键词降级仍调用 findByQuery', /findByQuery\(/.test(genSrc), '');
+    var phrase = TTK.generator.recognize('我想了解过拟合');
+    var bothWords = TTK.generator.recognize('振动周期');
+    var asked = TTK.generator.recognize('过拟合是什么');
+    ok('原有关键词问法仍能匹配', phrase.ok && phrase.conceptId === 'overfit' && phrase.source === 'keyword-fallback'
+      && bothWords.ok && bothWords.conceptId === 'oscillation'
+      && asked.ok && asked.conceptId === 'overfit',
+      JSON.stringify({ phrase: phrase.conceptId, both: bothWords.conceptId, asked: asked.conceptId }));
+    var svgShot = TTK.generator.recognize({
+      image: { name: '截图.svg', body: '<svg xmlns="http://www.w3.org/2000/svg"><text>过拟合</text></svg>' }
+    });
+    ok('图片里的文字能产出概念且不上传', svgShot.ok && svgShot.conceptId === 'overfit'
+      && svgShot.source === 'image-text' && svgShot.message.indexOf('没有上传') >= 0 && mediaCalls === 0,
+      svgShot.message || '');
+    var paragraph = TTK.generator.recognize({
+      image: { name: '板书.png', text: '课本这一段在讲贝叶斯更新，先验会被新证据挪动。' }
+    });
+    ok('课本段落图片能产出已收录概念', paragraph.ok && paragraph.conceptId === 'bayes' && mediaCalls === 0,
+      paragraph.message || '');
+    var described = TTK.generator.recognize({
+      image: { name: '截图.png', text: '今天的板书写着一个尚未收录的新概念' }
+    });
+    ok('画面有字但未收录时给出概念描述', described.ok === false && !described.conceptId
+      && described.concept.indexOf('尚未收录') >= 0 && described.message && described.unsupported === false
+      && mediaCalls === 0, described.message || '');
+    var pngBytes = pngWithText('今天的板书写着放射性衰变');
+    var fromPng = TTK.generator.recognize({ image: { name: '截图.png', bytes: pngBytes } });
+    ok('图片文件里的文字能产出概念且不上传', fromPng.ok && fromPng.conceptId === 'decay' && mediaCalls === 0,
+      fromPng.message || '');
+    var quiet = TTK.generator.recognize({ audio: { name: 'lecture.wav' } });
+    ok('听不懂的语音给出明确提示且不上传', quiet.ok === false && !quiet.conceptId && quiet.unsupported === true
+      && quiet.message.indexOf('没有上传') >= 0 && mediaCalls === 0, quiet.message || '');
+    ok('选择图片前界面已说明不会上传', /id="askPrivacy"/.test(html) && /不会上传/.test(html)
+      && html.indexOf('id="askPrivacy"') < html.indexOf('id="mediaBtn"'), '');
+
+    var secret = 'do-not-send-this';
+    var calls = 0;
+    var seenBody = '';
+    TTK.generator.configure({
+      endpoint: 'https://proxy.local/generate',
+      model: 'demo',
+      apiKey: secret,
+      token: secret,
+      transport: function (req) {
+        calls += 1;
+        seenBody = req.body || '';
+        if (calls === 1) return { id: 'bad', name: '坏' };
+        return { choices: [{ message: { content: '```json\n' + JSON.stringify(resonanceSpec()) + '\n```' } }] };
+      }
+    });
+    var pub = TTK.generator.config();
+    ok('configure 只留下端点与模型名', pub.enabled === true && pub.model === 'demo' && !pub.apiKey && !pub.token, JSON.stringify(pub));
+
+    TTK.generator.generate('阻尼共振', { ids: ['oscillation'] }).then(function (res) {
+      var compiled = null, compileErr = '';
+      try { compiled = TTK.dsl.compile(res.spec); }
+      catch (e) { compileErr = e.message; }
+      var numeric = compiled ? issuesOf(compiled.compute(TTK.engine.defaults(compiled), TTK.math)) : ['未编译'];
+      ok('校验失败会重试一次，阻尼共振产出可编译 JSON',
+        res.ai === true && res.attempts === 2 && calls === 2 && compiled && numeric.length === 0,
+        JSON.stringify({ ai: res.ai, attempts: res.attempts, calls: calls, reason: res.reason, id: res.spec && res.spec.id, errors: res.errors, compileErr: compileErr, numeric: numeric }));
+      ok('请求体带概念与提示且不含密钥', seenBody.indexOf('阻尼共振') >= 0
+        && seenBody.indexOf('prompt') >= 0 && seenBody.indexOf(secret) < 0, '');
+      ok('生成公式仍在表达式白名单内', compiled && TTK.expr.validate(res.spec.series[0].expr).ok, res.spec.series[0].expr);
+
+      var collideCalls = 0;
+      TTK.generator.configure({
+        endpoint: 'https://proxy.local/generate',
+        transport: function () {
+          collideCalls += 1;
+          var spec = resonanceSpec();
+          spec.id = 'oscillation';
+          return spec;
+        }
+      });
+      return TTK.generator.generate('阻尼共振', { ids: ['oscillation'] }).then(function (collided) {
+        var cv = TTK.dsl.validate(collided.spec, ['oscillation']);
+        ok('与已有 id 冲突时改写 id 而不是覆盖', collided.ai === true && collided.spec.id !== 'oscillation' && cv.ok,
+          collided.spec && collided.spec.id);
+
+        TTK.generator.configure({
+          endpoint: 'https://proxy.local/generate',
+          transport: function () {
+            var evil = resonanceSpec();
+            evil.series[0].expr = 'window.alert(1)';
+            return evil;
+          }
+        });
+        return TTK.generator.generate('阻尼共振', { ids: [] });
+      }).then(function (evilRes) {
+        var expr = evilRes.spec && evilRes.spec.series && evilRes.spec.series[0] && evilRes.spec.series[0].expr;
+        ok('恶意公式被拒后降级且不谎称 AI', evilRes.ai === false && evilRes.reason === 'invalid'
+          && evilRes.attempts === 2 && expr && expr.indexOf('window') < 0,
+          JSON.stringify({ ai: evilRes.ai, reason: evilRes.reason, attempts: evilRes.attempts, expr: expr }));
+        var eng = TTK.createEngine();
+        var before = eng.all().length;
+        var evil = resonanceSpec();
+        evil.series[0].expr = 'window.alert(1)';
+        var denied = TTK.generator.mount(eng, evil);
+        ok('挂载入口拒绝白名单外的公式', denied.ok === false && eng.all().length === before, (denied.errors || []).join('; '));
+
+        TTK.generator.configure({
+          endpoint: 'https://proxy.local/generate',
+          transport: function () { throw new Error('offline'); }
+        });
+        return TTK.generator.generate('阻尼共振');
+      }).then(function (down) {
+        ok('断网重试一次后降级为本地草稿', down.ai === false && down.source === 'local-draft' && down.reason === 'network' && down.attempts === 2, down.reason);
+        restore();
+        var again = TTK.generator.generate('再试一次');
+        ok('清空端点后恢复同步本地草稿', again && typeof again.then !== 'function' && again.ai === false, '');
+        done();
+      });
+    }).then(null, function (err) {
+      ok('I4 异步流程未中断', false, err && (err.stack || err.message));
+      restore();
+      done();
+    });
+  } catch (err) {
+    ok('I4 同步流程未中断', false, err && (err.stack || err.message));
+    restore();
+    done();
+  }
+}
 
 function finish() {
   console.log('\n---------------------------------------------');
