@@ -254,18 +254,151 @@
     recordTrail(state, 'select');
   });
 
-  /* ---------------- 输入层：自然语言 → 概念 ---------------- */
-  function ask() {
-    var q = $('conceptInput').value.trim();
-    if (!q) { $('askHint').textContent = '先输入一个想弄懂的概念，比如「过拟合」'; return; }
-    var hit = engine.findByQuery(q);
-    if (hit) {
-      $('askHint').textContent = '';
-      TTK.views.go('sandbox', hit.id); // 顶部输入框全局可见，命中后回到沙盒视图
-      toast('已匹配到「' + hit.name + '」沙盒', 'ok');
-    } else {
-      $('askHint').textContent = '暂未收录「' + q + '」。AI 生成接口已预留：接入大模型后按同一 schema 输出参数与模型，即可直接挂载到引擎（格式见 contracts/README.md 与 docs/01-接口契约.md）。';
+  /* ---------------- 输入层：文字 / 图片 / 语音 → 概念 ---------------- */
+  var asking = false;
+  var pendingMedia = null;
+
+  function mediaKind(file) {
+    var name = (file && file.name) || '';
+    var type = (file && file.type) || '';
+    if (type.indexOf('audio/') === 0 || /\.(mp3|wav|m4a|ogg|aac|flac)$/i.test(name)) return 'audio';
+    if (type.indexOf('text/') === 0 || /svg/i.test(type) || /\.(svg|txt)$/i.test(name)) return 'text';
+    return 'image';
+  }
+
+  function readBlob(file, asText) {
+    return new Promise(function (resolve, reject) {
+      if (asText && file && typeof file.text === 'function') {
+        file.text().then(resolve, reject);
+        return;
+      }
+      if (!asText && file && typeof file.arrayBuffer === 'function') {
+        file.arrayBuffer().then(function (buf) { resolve(new Uint8Array(buf)); }, reject);
+        return;
+      }
+      if (typeof FileReader !== 'function') {
+        reject(new Error('无法在本机读取'));
+        return;
+      }
+      var reader = new FileReader();
+      reader.onload = function () {
+        if (asText) resolve(String(reader.result || ''));
+        else resolve(new Uint8Array(reader.result));
+      };
+      reader.onerror = function () { reject(reader.error || new Error('无法在本机读取')); };
+      if (asText) reader.readAsText(file);
+      else reader.readAsArrayBuffer(file);
+    });
+  }
+
+  function detectLocalText(file) {
+    if (!file || typeof createImageBitmap !== 'function' || typeof TextDetector !== 'function') {
+      return Promise.resolve('');
     }
+    return createImageBitmap(file).then(function (bitmap) {
+      return new TextDetector().detect(bitmap).then(function (items) {
+        return (items || []).map(function (item) { return item.rawValue || ''; }).join(' ');
+      }, function () { return ''; });
+    }, function () { return ''; });
+  }
+
+  function takeMedia(file) {
+    var kind = mediaKind(file);
+    var name = file.name || '未命名';
+    if (kind === 'audio') {
+      pendingMedia = { audio: { name: name } };
+      $('askHint').textContent = '已在本机选中语音「' + name + '」。不会上传。';
+      return;
+    }
+    readBlob(file, kind === 'text').then(function (payload) {
+      var image = { name: name };
+      if (kind === 'text') image.body = String(payload || '').slice(0, 20000);
+      else image.bytes = payload;
+      return detectLocalText(kind === 'text' ? null : file).then(function (text) {
+        if (text) image.text = text;
+        pendingMedia = { image: image };
+        $('askHint').textContent = '已在本机读完「' + name + '」。不会上传。';
+      });
+    }, function () {
+      pendingMedia = null;
+      $('askHint').textContent = '没有读成这个文件。它还在你的电脑上，没有上传。';
+    });
+  }
+
+  function ask() {
+    var typed = $('conceptInput').value.trim();
+    var media = pendingMedia;
+    if (!typed && !media) {
+      $('askHint').textContent = '先输入想弄懂的概念，或选择图片 / 语音。内容只在本机处理。';
+      return;
+    }
+    if (asking) return;
+    var recognized = TTK.generator.recognize(media ? {
+      text: typed,
+      image: media.image || null,
+      audio: media.audio || null
+    } : typed);
+    if (recognized.ok && recognized.conceptId && engine.get(recognized.conceptId)) {
+      pendingMedia = null;
+      $('askHint').textContent = recognized.message || '';
+      TTK.views.go('sandbox', recognized.conceptId);
+      toast('已匹配到「' + engine.get(recognized.conceptId).name + '」沙盒', 'ok');
+      return;
+    }
+    if (recognized.unsupported || !recognized.concept) {
+      $('askHint').textContent = recognized.message || '没有认出这个输入。';
+      toast('没有认出');
+      return;
+    }
+    pendingMedia = null;
+    var q = recognized.concept;
+    var ids = engine.all().map(function (t) { return t.id; });
+    var produced = TTK.generator.generate(q, { ids: ids });
+    if (produced && typeof produced.then === 'function') {
+      asking = true;
+      $('askBtn').disabled = true;
+      $('askHint').textContent = '正在向已配置的代理请求「' + q + '」…';
+      produced.then(function (result) { landGenerated(q, result); }, function () {
+        landGenerated(q, { ai: false, spec: TTK.dsl.draft(q), source: 'local-draft', reason: 'network' });
+      });
+      return;
+    }
+    landGenerated(q, produced);
+  }
+
+  function landGenerated(q, result) {
+    asking = false;
+    $('askBtn').disabled = false;
+    if (!result || !result.spec) {
+      result = { ai: false, spec: TTK.dsl.draft(q), source: 'local-draft', reason: 'invalid' };
+    }
+    var mounted = TTK.generator.mount(engine, result.spec);
+    if (!mounted.ok) {
+      result = { ai: false, spec: TTK.dsl.draft(q), source: 'local-draft', reason: result.reason || 'invalid' };
+      mounted = TTK.generator.mount(engine, result.spec);
+    }
+    if (!mounted.ok) {
+      $('askHint').textContent = '没能挂上「' + q + '」：' + (mounted.errors || []).join('；');
+      toast('生成失败');
+      return;
+    }
+    buildSidebar();
+    TTK.views.go('sandbox', mounted.tpl.id);
+    if (result.ai === true) {
+      $('askHint').textContent = '这份沙盒来自模型输出，并已通过公式白名单校验。刷新页面后不会保留。';
+      toast('已生成「' + mounted.tpl.name + '」', 'ok');
+      return;
+    }
+    $('askHint').textContent = draftHint(q, result);
+    toast('已挂上本地草稿，不是 AI 生成');
+  }
+
+  function draftHint(q, result) {
+    var why = result && result.reason;
+    var tail = '下面是本地草稿（通用正弦曲线），不是 AI 生成。刷新页面后不会保留。';
+    if (why === 'network') return '「' + q + '」的模型请求失败，已重试一次。' + tail;
+    if (why === 'invalid') return '模型给「' + q + '」的模板没通过校验，已重试一次。' + tail;
+    return '「' + q + '」还没有精修模板，也还没配模型代理。' + tail;
   }
 
   /* ---------------- 导航 ---------------- */
@@ -297,6 +430,13 @@
       }
     });
     $('askBtn').addEventListener('click', ask);
+    $('mediaBtn').addEventListener('click', function () { $('mediaInput').click(); });
+    $('mediaInput').addEventListener('change', function () {
+      var input = $('mediaInput');
+      var file = input.files && input.files[0];
+      input.value = '';
+      if (file) takeMedia(file);
+    });
     $('conceptInput').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') ask();
     });
