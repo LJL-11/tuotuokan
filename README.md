@@ -17,8 +17,9 @@
 #I15 同步产品入口（服务地址 / 匿名 ID / 待上传数 / 最近错误 / 即时重绘 / 数据诚实文案），
 四条验收框均已全勾并附验收 comment。
 
-仍打开 4 条：#I9 模拟骨架（曹），以及偿还 #19（真实 `/generate` 代理）、#20（多模态能力口径）、
-#21（生成模板持久化）。付名下的前端部分已落地，**服务端代理与端到端模型联调仍待秦 / 姜**，
+仍打开 4 条：#I9 模拟骨架（曹，代码已推并自验通过，**网页 4 个验收框尚未勾**）、
+偿还 #19（真实 `/generate` 代理）、#20（多模态能力口径）、#21（生成模板持久化）。
+付名下的前端部分已落地，**服务端代理与端到端模型联调仍待秦 / 姜**，
 见 [`docs/02-路线图与任务看板.md`](docs/02-路线图与任务看板.md)。
 
 **输入能力口径（不要夸大）**：本机只读「文字 / 文件名 / 图片内嵌文字」，不识别画面内容、不转写语音；
@@ -26,8 +27,9 @@
 生成代理未配置时，未收录概念只给本地草稿（不是 AI 生成、刷新不保留）；配置后由服务端调用模型，
 模型模板会落盘并在刷新后恢复，本地草稿仍不落盘。
 
-校验基线：`npm test` **292 项**、`npm run api:smoke` **30 项**、`npm run api:browser` **37 项**、
-`npm run check:anon` PASS（`npm run check` = test + api:smoke + check:anon；api:browser 单独跑）。
+校验基线：`npm test` **350 项**、`npm run api:smoke` **30 项**、`npm run api:browser` **37 项**、
+`npm run check:browser` **18 项**（真实 Canvas 模拟验收）、`npm run check:anon` PASS
+（`npm run check` = test + api:smoke + check:anon；浏览器类脚本单独跑）。
 
 ---
 
@@ -41,6 +43,8 @@
 npm test            # 语法 / 脚本路径 / DOM 引用 / 数值稳定性 / DSL / 表达式安全 / 契约样例 / 四视图验收
 npm run api:smoke   # 真实本机 HTTP + 数据层同步回归（30 项）
 npm run api:browser # 真实浏览器 UI 冒烟（需本机 Edge / Chrome，37 项，不进 CI）
+npm run check:browser # 真实 Canvas 模拟骨架验收（步进 / 暂停 / 调速，18 项）
+npm run probe:budget  # 重算预算与降级链路探针
 npm run check:anon  # 匿名合规扫描
 npm run check       # test + api:smoke + check:anon 一起跑
 ```
