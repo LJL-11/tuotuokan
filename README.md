@@ -19,7 +19,7 @@
 网页 #13 4/4 全勾并附验收 comment，四处契约同步已补齐）。
 
 仍打开 3 条：偿还 #19（真实 `/generate` 代理）、#20（多模态能力口径）、#21（生成模板持久化）。
-付名下的前端部分已落地，**服务端代理与端到端模型联调仍待秦 / 姜**，
+付名下的前端部分已落地；秦已实现代理并验证模板数据同步，**真实供应商 / 模型尚未确定，待姜联调**，
 见 [`docs/02-路线图与任务看板.md`](docs/02-路线图与任务看板.md)。
 
 **输入能力口径（不要夸大）**：本机只读「文字 / 文件名 / 图片内嵌文字」，不识别画面内容、不转写语音；
@@ -27,7 +27,7 @@
 生成代理未配置时，未收录概念只给本地草稿（不是 AI 生成、刷新不保留）；配置后由服务端调用模型，
 模型模板会落盘并在刷新后恢复，本地草稿仍不落盘。
 
-校验基线：`npm test` **350 项**、`npm run api:smoke` **30 项**、`npm run api:browser` **37 项**、
+校验基线：`npm test` **350 项**、`npm run api:smoke` **40 项**、`npm run api:browser` **37 项**、
 `npm run check:browser` **18 项**（真实 Canvas 模拟验收）、`npm run check:anon` PASS
 （`npm run check` = test + api:smoke + check:anon；浏览器类脚本单独跑）。
 
@@ -41,7 +41,7 @@
 
 ```bash
 npm test            # 语法 / 脚本路径 / DOM 引用 / 数值稳定性 / DSL / 表达式安全 / 契约样例 / 四视图验收
-npm run api:smoke   # 真实本机 HTTP + 数据层同步回归（30 项）
+npm run api:smoke   # 真实本机 HTTP + 数据层同步 + 模拟模型上游回归（40 项，不调用外部模型）
 npm run api:browser # 真实浏览器 UI 冒烟（需本机 Edge / Chrome，37 项，不进 CI）
 npm run check:browser # 真实 Canvas 模拟骨架验收（步进 / 暂停 / 调速，18 项）
 npm run probe:budget  # 重算预算与降级链路探针
@@ -56,7 +56,7 @@ npm run check       # test + api:smoke + check:anon 一起跑
 | 付 | 产品统筹 + 前端 / 可视化 | `src/ui/`、`src/viz/`、`assets/`、`index.html`、`docs/` | #I2 / #I3 / #I14 / #I15 已关闭；#19 / #20 / #21 的前端部分已落地 |
 | 姜 | 算法 / ML：概念建模、AI 生成、多模态识别 | `src/model/` | #I4 / #I5 / #I6 已完成，下一步 #19 端到端联调、#20 已选冻结 |
 | 曹 | 游戏 / 模拟引擎：沙盒运行骨架 | `src/core/` | #I7 / #I8 / #I9 已关闭；其余 8 个模板的 `sim` 元数据属后续扩展，不在 #I9 范围 |
-| 秦 | 后端 / 多设备 / 工程 / 文档 | `services/api/`、`src/learning/data.js` | #I10 / #I11 / #I12 已完成，下一步 #19 的 `POST /generate` |
+| 秦 | 后端 / 多设备 / 工程 / 文档 | `services/api/`、`src/learning/data.js` | #I10 / #I11 / #I12 已完成；#19 代理与 #21 数据侧已验证，待真实模型联调 |
 
 > 表内单字为姓氏，仅作分工标识；对外材料不出现成员全名。
 
@@ -105,8 +105,11 @@ npm run check       # test + api:smoke + check:anon 一起跑
   页面底部措辞会随模式切换，**未配置时零网络请求**。公网后端是可选增强，当前不部署不影响演示与本地评测。
 - **AI 生成代理（可选）**：抽屉里的「AI 生成代理（可选）」可填 `POST /generate` 地址与模型名，
   存在本机 `ttk.generator.v1`（不进轨迹 / 同步队列 / 导出 JSON），刷新后自动恢复；清空即回本地草稿模式。
-  模型密钥只放服务端环境变量，前端不输入、不携带。仓库里的 `services/api/` 目前**还没有** `/generate`
-  实现（偿还 #19 归秦），所以配好地址前请勿把演示说成「模型已端到端接入」。
+  模型密钥只放服务端环境变量，前端不输入、不携带。`services/api/` 已实现 `POST /v1/generate`（#19），
+  通过 `TTK_LLM_URL / TTK_LLM_API_KEY / TTK_LLM_MODEL` 配置上游；页面填写
+  `http://127.0.0.1:8787/v1/generate`。默认不调用模型，当前验收使用本机模拟上游，真实供应商仍待选定与联调。
+  启动与错误处理见 [`services/api/README.md`](services/api/README.md)，交接见
+  [`services/api/DELIVERY-R1-R3.md`](services/api/DELIVERY-R1-R3.md)。
 
 ## 协作规则
 

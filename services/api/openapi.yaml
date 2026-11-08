@@ -19,7 +19,52 @@ tags:
     description: 用户自定义模板
   - name: identity
     description: 匿名身份
+  - name: generation
+    description: 可选模型代理（模型密钥只放服务端）
 paths:
+  /generate:
+    post:
+      tags: [generation]
+      summary: 调用 Chat Completions 兼容上游生成 TemplateSpec
+      description: >-
+        完整本地地址为 http://127.0.0.1:8787/v1/generate；无需 X-Anon-Id 或前端 Authorization。
+        上游完整 URL、密钥、默认模型由服务端 TTK_LLM_* 环境变量配置，不从请求体接收。
+        仅转发 concept 与 prompt 文本，不发送学习轨迹、匿名 ID 或图片/语音字节。
+        返回值经过 TemplateSpec 形状校验；挂载前客户端仍必须走 dsl.validate/compile 和 expr 白名单。
+        服务端不重试，由生成器重试一次后诚实降级。每个进程默认全局每分钟 20 次、同时 2 次；不按 IP 计数或记录请求内容。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [concept, prompt]
+              properties:
+                concept: { type: string, minLength: 1, maxLength: 200 }
+                model: { type: string, maxLength: 128, description: 可省或为空，使用服务端默认模型；非空时覆盖默认模型 }
+                prompt: { type: string, minLength: 1, maxLength: 24000 }
+      responses:
+        '200':
+          description: 纯数据模板（不自动写入同步数据库）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [spec]
+                properties:
+                  spec: { type: object, description: 'TemplateSpec v1，source 为 llm，字段见 contracts/template.schema.json' }
+        '400': { description: 输入字段、长度或类型不合法 }
+        '413': { description: 请求体超过 2 MiB }
+        '429':
+          description: 本机全局限流、并发限制或上游限流
+          headers:
+            Retry-After:
+              schema: { type: integer, minimum: 1 }
+              description: 建议稍后重试的秒数
+        '502': { description: 上游连接失败、非成功状态、非法 JSON / 模板或响应超过 1 MiB；不透传上游错误内容或重定向 }
+        '503': { description: 尚未配置上游地址或有效模型名 }
+        '504': { description: 上游总请求超时，已中止连接；默认 6500 毫秒 }
   /health:
     get:
       summary: 服务存活探针

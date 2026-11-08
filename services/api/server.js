@@ -5,6 +5,7 @@ var fs = require('fs');
 var path = require('path');
 var crypto = require('crypto');
 var check = require('./validate');
+var createGenerate = require('./generate').createGenerate;
 var ANON_RE = /^[0-9a-f]{16}$/;
 var MAX_BODY = 2 * 1024 * 1024;
 function emptyDb() { return { identities: {}, events: {}, progress: {}, stuck: {}, templates: {} }; }
@@ -51,6 +52,7 @@ function readBody(req, res, cb) {
 }
 function createServer(options) {
   options = options || {};
+  var generate = createGenerate(options.llm);
   var directory = options.dataDir || process.env.TTK_DB_DIR || path.join(__dirname, '.data');
   var dbFile = path.join(directory, 'db.json'), db;
   try {
@@ -107,6 +109,9 @@ function createServer(options) {
     route = route.slice(3);
     if (req.method === 'OPTIONS') return send(res, 204);
     if (route === '/health' && req.method === 'GET') return send(res, 200, { ok: true });
+    if (route === '/generate' && req.method === 'POST') {
+      return readBody(req, res, function (body) { return generate(body, res, send); });
+    }
     if (route === '/auth/anonymous' && req.method === 'POST') {
       return readBody(req, res, function (body) {
         var id;

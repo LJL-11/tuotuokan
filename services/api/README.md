@@ -1,4 +1,4 @@
-# 匿名同步服务 · 秦 #I10
+# 匿名同步与模型代理服务 · 秦 #I10 / #19
 
 零第三方依赖，使用 Node 内置 HTTP 与文件存储。前端接口仍是 `TTK.data`；不修改 `contracts/`、`index.html` 或队友的引擎与视图。
 
@@ -14,7 +14,7 @@ npm run check
 npm run api:browser
 ```
 
-服务默认监听 `http://127.0.0.1:8787/v1`。`npm run api:smoke` 可以单独运行 I10 验收，使用随机端口和 `.local/ttk-api-*` 临时库，结束后校验路径并清理，不碰真实学习数据。
+服务默认监听 `http://127.0.0.1:8787/v1`。`npm run api:smoke` 覆盖原 I10 的 30 项与 #19 / #21 新增 10 项，共 40 项；使用随机端口、模拟模型上游和 `.local/ttk-api-*` 临时库，结束后校验路径并清理，不碰真实学习数据、不调用外部模型。
 
 `npm run api:browser` 是**真实浏览器验收**：自动发现本机 Edge / Chrome，用 CDP 起 headless 实例打开 `file://` 页面，验证拖参数上报、断网刷新补发、跨浏览器读回，#I2 / #I3 / #I14 / #I15 的 UI 冒烟，以及偿还 #19 / #20 / #21 前端入口的生成落盘与刷新恢复（当前 37 项）。找不到浏览器时以退出码 2 跳过，不进 CI（CI 是 Linux 无头环境，装浏览器成本不值）。
 
@@ -82,6 +82,7 @@ TTK.data.remote.configure('');
 | 端点 | 行为 |
 |---|---|
 | `GET /health` | 存活探针 |
+| `POST /generate` | 调用服务端配置的 Chat Completions 兼容上游，返回 `{spec}`；无配置返回 503 |
 | `POST /auth/anonymous` | 创建或恢复 16 位随机匿名 ID；非法 existingId 返回 400 |
 | `POST /events` | 批次完整校验、按身份去重、持久化后返回 202；支持草稿已有的可选 progress / stuck |
 | `GET /trace` | 导出该身份完整 LearningTrace v1 |
@@ -89,7 +90,7 @@ TTK.data.remote.configure('');
 | `GET /templates` | 获取该身份模板 |
 | `PUT /templates` | 按 TemplateSpec 校验并保存模板；非法返回 422 |
 
-除身份创建、健康检查与 OPTIONS 外均要求 `X-Anon-Id`。请求体上限 2 MiB。CORS 允许 `Content-Type`、`X-Anon-Id` 和 `file://` 页面的请求；服务不接收凭证 Cookie。
+除生成代理、身份创建、健康检查与 OPTIONS 外均要求 `X-Anon-Id`。请求体上限 2 MiB。CORS 允许 `Content-Type`、`X-Anon-Id` 和 `file://` 页面的请求；服务不接收凭证 Cookie。
 
 `validate.js` 只实现当前两份契约使用的校验关键字，不是通用 JSON Schema 引擎。更新契约时需同步检查这里。服务端不执行模板公式，客户端挂载模板仍必须经过 `TTK.dsl.validate/compile` 与表达式白名单。
 
@@ -102,5 +103,52 @@ I11 数据侧与 I12 静态部署均已完成（网页 #14 / #8 已关闭）：G
 **Pages 只托管静态文件，不运行 `server.js`**，跨设备同步仍需本机 `npm run api` 或另行部署该服务；
 产品入口、界面同步状态与匿名身份交互归 #I15（付），不属 I10 / I11 验收范围。
 
-`/generate` 代理仍待与姜对齐请求 / 响应，属网页偿还 Issue #19（旧代号 R1），不在 I10 中新增：**模型密钥只放服务端，前端不携带**；
-代理落地前 `TTK.generator` 未配置 endpoint，默认返回 `ai:false` 的本地草稿。
+## 模型代理（#19）
+
+`POST /v1/generate` 接收 `{concept, model, prompt}`，只返回 `{spec: TemplateSpec}`。
+`concept` 为 1–200 字，`prompt` 为 1–24000 字；`model` 可省或为空，使用服务端默认模型。
+客户端不能提交密钥、上游地址或其他字段。模型密钥只在服务端发往固定上游的 `Authorization: Bearer ...` 中使用。
+
+| 环境变量 | 默认值 | 用途 |
+|---|---|---|
+| `TTK_LLM_URL` | 空（代理未启用） | 上游完整 Chat Completions URL，包含 `/chat/completions`；HTTPS，本机模拟允许 HTTP loopback；不接受 URL 凭证、查询串或片段 |
+| `TTK_LLM_API_KEY` | 空 | 服务端模型密钥；本机无鉴权模型可留空 |
+| `TTK_LLM_MODEL` | 空 | 默认模型名；前端传非空 `model` 可覆盖 |
+| `TTK_LLM_TIMEOUT_MS` | `6500` | 总请求超时，整数 1–7000 毫秒，早于客户端 8 秒超时 |
+| `TTK_LLM_RATE_LIMIT` | `20` | 每个服务进程全局每分钟最多请求数，整数 1–10000；重试也计次 |
+| `TTK_LLM_MAX_CONCURRENT` | `2` | 同时生成数，整数 1–100 |
+
+上游使用非流式 `{model, stream:false, messages:[{role:'system', content:prompt}, {role:'user', content:concept}]}`。
+协议参考 [Chat Completions 兼容接口文档](https://help.aliyun.com/en/model-studio/qwen-api-via-openai-chat-completions)；
+具体服务商与模型尚未选定。上游响应支持 TemplateSpec、`{spec}`、`choices[0].message.content`（可含 JSON 代码围栏）。
+代理校验模板形状并去掉顶层额外元数据，客户端仍须经过 DSL / 表达式白名单；服务端不执行公式。
+
+配置示例（服务商确认后替换占位值，密钥通过进程环境注入，不写进源码）：
+
+```powershell
+$env:TTK_LLM_URL = 'https://<模型服务域名>/v1/chat/completions'
+$env:TTK_LLM_MODEL = '<模型名>'
+# 在本机设置 TTK_LLM_API_KEY；不要把真实值写入仓库或群聊。
+npm run api
+```
+
+Node 18 启动不会自动读取 `.env`，请使用当前终端的环境变量；改配置后重启服务。
+页面「学习记录 → AI 生成代理」填 `http://127.0.0.1:8787/v1/generate`，模型名可留空。
+这是**生成代理地址**；同步服务地址仍是 `http://127.0.0.1:8787/v1`，两项独立配置。
+
+未配置地址或模型返回 503；限流返回 429 和 `Retry-After`；上游连接、状态、JSON / 模板错误返回 502；
+总超时返回 504 并中止上游连接，响应限 1 MiB，不跟随重定向。
+错误不透传上游正文、密钥或地址；不记录概念、提示、IP、身份、图片或语音。
+每进程限流不按 IP 留痕，也不代替公网部署的访问控制。代理自身不重试，前端重试一次后降级为 `ai:false` 草稿。
+生成请求只发送概念与提示文本到**用户配置的服务及其上游**；不发送学习轨迹、匿名 ID 或媒体字节。
+
+## 生成模板数据确认（#21）
+
+秦确认：`saveCustom(list)` 接收纯 TemplateSpec 数组，存 `ttk.custom.v1`，不存带 `compute()` 的 RuntimeTemplate。
+`generator.mount()` 的 `spec` 可序列化，`persist === true` 的模型模板由付的页面逻辑保存；本地草稿不落盘。
+生成器对占用 id 改名；保存入口拒绝内置 id；相同自定义 id 由调用方先去重再替换，快照 / 服务端同 id 最后成功上传者生效。
+恢复时始终先 DSL 校验与编译，不覆盖已注册的精修模板。无需修改数据格式、共享契约或增加存储 key。
+
+新增 #21 用例验证：模型生成 → 本地保存 → 刷新 / 导出 / 导入 → 编译挂载；
+配置同步后 `/trace/import` 上传的模板与 `GET/PUT /templates` 共用一份数据，同 ID 新客户端能读回，换 ID 隔离，服务重启保留。
+交付范围与联调清单见 [#19 / #21 交接说明](DELIVERY-R1-R3.md)。目前只完成本机模拟模型上游验证，未做真实供应商调用；两条 Issue 等姜完成真实模型联调后再统一验收。

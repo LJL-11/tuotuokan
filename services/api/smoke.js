@@ -304,6 +304,7 @@ async function main() {
     var result = await c.data.remote.flush(); clearTimeout(guard);
     assert.equal(result.ok, false); assert.equal(c.data.remote.inflight, false); assert.equal(c.data.remote.pending(), 1); c.dispose();
   });
+  await require('./generate-smoke')({ test: test, listen: listen, close: close, request: request, tmp: tmp, client: client, plain: plain });
 }
 main().catch(function (e) { failures.push('运行异常'); console.error(e.stack || e); }).finally(async function () {
   clients.forEach(function (c) { c.dispose(); });
