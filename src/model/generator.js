@@ -19,6 +19,8 @@
  *
  * 图片 / 语音：只在本机看文件名，以及画面或文件里能读到的文字。字节不上传。
  * 浏览器若提供本机文字识别，也只在本机做。认不出就说明，不编造概念。
+ * recognize().level：supported 文字，fallback 文件名或图片内文字，unsupported 纯语音或没有可读文字的图。
+ * mount() 成功时多返回 spec（可 JSON 序列化）和 persist。只有 source 为 llm 时 persist 为 true；本地草稿不落盘。
  */
 (function (global) {
   'use strict';
@@ -213,11 +215,15 @@
     if (textHit) source = 'keyword-fallback';
     else if (contentHit || extracted) source = 'image-text';
     else if (nameHit) source = 'filename';
+    var level = 'unsupported';
+    if (textHit || (text && !media.present)) level = 'supported';
+    else if (contentHit || nameHit || extracted) level = 'fallback';
     return {
       ok: !!hit,
       conceptId: hit ? hit.id : null,
       concept: concept,
       source: source,
+      level: level,
       unsupported: !!(media.present && !hit && !extracted),
       message: message
     };
@@ -417,7 +423,13 @@
     var tpl;
     try { tpl = TTK.dsl.compile(data, v); engine.register(tpl); }
     catch (e) { return { ok: false, errors: [e.message] }; }
-    return { ok: true, tpl: tpl, source: data && data.source };
+    return {
+      ok: true,
+      tpl: tpl,
+      source: data && data.source,
+      spec: data,
+      persist: !!(data && data.source === 'llm')
+    };
   }
 
   TTK.generator = {
