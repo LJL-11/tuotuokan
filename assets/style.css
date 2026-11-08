@@ -329,6 +329,66 @@ button { cursor: pointer; }
 .studio-msg.ok { color: var(--teal); }
 .studio-msg.bad { color: var(--coral); }
 
+/* ---------- #I2 报告：导出 / 导入与图表 ---------- */
+.report-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+.report-tools .studio-msg { flex: 1 1 220px; }
+.report-export-text {
+  display: block; width: 100%; height: 96px; margin: 6px 0 18px;
+  padding: 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: #f8fafc; color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px;
+  resize: vertical;
+}
+.report-chart { width: 100%; overflow-x: auto; }
+.report-chart svg { display: block; min-width: 300px; max-width: 100%; }
+
+/* ---------- #I3 工坊：预览与已保存列表 ---------- */
+.studio-preview { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 6px; }
+.studio-preview h3 { margin-top: 10px; }
+.studio-canvas {
+  display: block; width: 100%; height: 220px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+}
+.studio-metrics { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.studio-metric {
+  font-size: 11px; color: var(--muted); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px;
+}
+.studio-metric b { color: var(--indigo); font-variant-numeric: tabular-nums; }
+.studio-list { display: flex; flex-direction: column; gap: 8px; }
+.studio-saved {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 11.5px; color: var(--text);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px;
+}
+.studio-saved > span { flex: 1 1 160px; }
+.studio-saved small { color: var(--muted); font-size: 10px; margin-left: 6px; }
+
+/* ---------- #I14 图谱图例 ---------- */
+.graph-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; font-size: 10.5px; color: var(--muted); }
+.graph-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.graph-legend i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.graph-count { margin-left: auto; }
+
+/* ---------- #I15 同步入口（学习记录抽屉内） ---------- */
+.sync-box { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 4px; }
+.sync-hint { font-size: 11px; line-height: 1.65; color: var(--muted); margin: 0 0 12px; }
+.sync-label { display: block; font-size: 11px; font-weight: 700; color: var(--muted); margin: 12px 0 6px; }
+.sync-input {
+  width: 100%; box-sizing: border-box; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 8px; background: #fff;
+  color: var(--ink); font-size: 12px; font-family: inherit;
+}
+.sync-input:focus { outline: none; border-color: #c7d2fe; box-shadow: 0 0 0 3px rgba(79, 70, 229, .08); }
+.sync-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.sync-actions .sync-input { flex: 1 1 170px; width: auto; }
+.sync-status {
+  margin-top: 12px; padding: 10px 12px; border-radius: 9px;
+  background: var(--bg); border: 1px solid var(--line);
+  font-size: 10.5px; line-height: 1.7; color: var(--text);
+  white-space: pre-line; word-break: break-all;
+}
+
 @media (max-width: 940px) {
   .view-nav { padding: 8px 12px 0; }
   .view-pane { padding: 14px 12px 24px; }

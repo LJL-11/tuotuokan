@@ -172,7 +172,9 @@ function trace(anonId) {
     var boot = await cdp.eval('JSON.stringify({tpl:(document.getElementById("tplName")||{}).textContent||"", cards:document.querySelectorAll("#tplList .tpl-card").length, canvas:(document.getElementById("stage")||{}).width||0, ttk:typeof TTK, tpls:TTK.templates.length, routes:TTK.views.routes().length})');
     var b = JSON.parse(boot);
     ok('file:// 双击打开无白屏（标题与画布已渲染）', b.tpl.length > 0 && b.canvas > 0, boot);
-    ok('六个沙盒全部载入侧栏', b.cards === 6 && b.tpls === 6, 'cards=' + b.cards + ' tpls=' + b.tpls);
+    // 模板库由 #I6 从 6 个扩到 10 个，这里按实际数量动态校验，别再写死。
+    ok('全部精修沙盒载入侧栏', b.cards === b.tpls && b.tpls >= 6,
+      'cards=' + b.cards + ' tpls=' + b.tpls);
     ok('四视图路由可用', b.routes === 4, 'routes=' + b.routes);
     var errs = cdp.events.filter(function (e) { return e.method === 'Runtime.exceptionThrown'; });
     ok('页面无未捕获异常', errs.length === 0, errs.length ? JSON.stringify(errs[0].params).slice(0, 200) : '');
@@ -267,6 +269,55 @@ function trace(anonId) {
     var bk = JSON.parse(back);
     ok('学习报告视图可进入', rp.shown === true && rp.sandbox === false, report);
     ok('切回沙盒后参数控件与画布仍在', bk.shown === true && bk.range === true && bk.canvas > 0, back);
+
+    // 7. #I2 / #I3 / #I14 / #I15 前端入口在真实浏览器里的冒烟
+    await cdp.eval('TTK.data.remote.configure("")');
+    await cdp.eval('TTK.views.go("report")'); await wait(250);
+    var uiReport = await cdp.eval('(function(){var orig=URL.createObjectURL;URL.createObjectURL=null;var t=TTK.views.exportReport();URL.createObjectURL=orig;var box=document.getElementById("reportExportText");var obj={};try{obj=JSON.parse(t||"{}")}catch(e){}return JSON.stringify({ok:obj.schema==="ttk.learning-trace.v1",copied:!!box&&box.value===t,imported:TTK.views.importReport(t)})})()');
+    var ur = JSON.parse(uiReport);
+    ok('报告导出 / 导入链路可用且导出符合契约',
+      ur.ok === true && ur.copied === true && ur.imported === true, uiReport);
+
+    await cdp.eval('TTK.views.go("studio")'); await wait(250);
+    var uiStudio = await cdp.eval('(function(){var s=JSON.parse(JSON.stringify(TTK.dsl.example));s.id="browser_spring";document.getElementById("studioJson").value=JSON.stringify(s,null,2);document.getElementById("studioCompile").click();return JSON.stringify({mounted:!!TTK.engine.get("browser_spring"),view:TTK.views.current().id,hash:location.hash})})()');
+    var us = JSON.parse(uiStudio);
+    ok('粘贴示例可编译挂载并自动切到沙盒',
+      us.mounted === true && us.view === 'sandbox' && us.hash.indexOf('browser_spring') >= 0, uiStudio);
+
+    await cdp.eval('TTK.views.go("studio")'); await wait(250);
+    var uiBad = await cdp.eval('(function(){var s=JSON.parse(JSON.stringify(TTK.dsl.example));s.id="browser_evil";s.series[0].expr="window.alert(1)";document.getElementById("studioJson").value=JSON.stringify(s,null,2);document.getElementById("studioValidate").click();return JSON.stringify({msg:(document.getElementById("studioMsg")||{}).textContent||"",mounted:!!TTK.engine.get("browser_evil")})})()');
+    var ub = JSON.parse(uiBad);
+    ok('非法公式给出行号与标识符且不会挂载',
+      /第 \d+ 行/.test(ub.msg) && ub.msg.indexOf('window') >= 0 && ub.mounted === false, uiBad);
+
+    var uiSaved = await cdp.eval('(function(){var s=JSON.parse(JSON.stringify(TTK.dsl.example));s.id="browser_saved";document.getElementById("studioJson").value=JSON.stringify(s,null,2);document.getElementById("studioSave").click();return JSON.stringify({count:TTK.data.custom().length,mounted:!!TTK.engine.get("browser_saved")})})()');
+    var usv = JSON.parse(uiSaved);
+    ok('工坊保存到本机且已挂载', usv.count >= 1 && usv.mounted === true, uiSaved);
+    var reloaded = cdp.once('Page.loadEventFired');
+    await cdp.send('Page.reload', { ignoreCache: true });
+    await reloaded; await wait(500);
+    var afterReload = await cdp.eval('JSON.stringify({mounted:!!TTK.engine.get("browser_saved"),custom:TTK.data.custom().length})');
+    var ar = JSON.parse(afterReload);
+    ok('刷新页面后自定义模板仍在', ar.mounted === true && ar.custom >= 1, afterReload);
+
+    await cdp.eval('TTK.views.go("graph")'); await wait(250);
+    var uiGraph = await cdp.eval('(function(){var list=document.querySelectorAll("#view-graph [data-node]");var first=list[0];var id=first&&first.getAttribute("data-node");if(first)first.dispatchEvent(new MouseEvent("click",{bubbles:true}));return JSON.stringify({nodes:list.length,tpls:TTK.engine.all().length,id:id,hash:location.hash})})()');
+    var ug = JSON.parse(uiGraph);
+    ok('图谱节点数与模板数一致且可点击跳转沙盒',
+      ug.nodes === ug.tpls && ug.hash.indexOf('#sandbox/' + ug.id) === 0, uiGraph);
+
+    var uiSync = await cdp.eval('(function(){document.getElementById("journalBtn").click();return JSON.stringify({status:document.getElementById("syncStatus").textContent,notice:document.getElementById("storageNotice").textContent,hasUrl:!!document.getElementById("syncUrl"),hasAnon:!!document.getElementById("syncAnon"),mode:TTK.data.remote.mode})})()');
+    var uy = JSON.parse(uiSync);
+    ok('同步面板显示模式 / 待上传 / 匿名 ID',
+      uy.hasUrl === true && uy.hasAnon === true && uy.status.indexOf('待上传') >= 0 &&
+      uy.status.indexOf('匿名 ID') >= 0, uiSync);
+    ok('本地模式数据诚实文案正确', uy.mode === 'local' && uy.notice.indexOf('不上传') >= 0, uy.notice);
+    var uiSyncOn = await cdp.eval('(function(){document.getElementById("syncUrl").value="http://127.0.0.1:8791/v1";document.getElementById("syncSave").click();return JSON.stringify({mode:TTK.data.remote.mode,notice:document.getElementById("storageNotice").textContent,status:document.getElementById("syncStatus").textContent})})()');
+    var uy2 = JSON.parse(uiSyncOn);
+    ok('界面可启用同步并即时更新状态与措辞',
+      uy2.mode === 'rest' && uy2.notice.indexOf('已启用同步') >= 0 &&
+      uy2.status.indexOf('匿名 ID') >= 0, uiSyncOn);
+    await cdp.eval('TTK.data.remote.configure("")');
 
   } catch (e) {
     ok('验收过程未抛异常', false, e && e.message);

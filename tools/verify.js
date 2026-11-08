@@ -524,7 +524,7 @@ var last13 = D.trail()[D.trail().length - 1];
 ok('四视图切换后拖动 / 指标 / 轨迹仍正常', !!paramOk13 && last13.reason === 'param'
   && TTK.engine.state.spec.metrics.length > 0, JSON.stringify(last13).slice(0, 160));
 
-runI4(finish);
+runI4(function () { runLeadViews(); finish(); });
 
 function pngWithText(text) {
   function utf8(value) {
@@ -736,6 +736,170 @@ function runI4(done) {
     restore();
     done();
   }
+}
+
+/* === 15. 付的前端精修：I2 / I3 / I14 / I15 验收实证 ===
+ * 在模拟 DOM 里直接驱动新增按钮与公开入口，逐条对应网页 Issue 的验收框。 */
+function runLeadViews() {
+  console.log('=== 15. I2 报告 / I3 工坊 / I14 图谱 / I15 同步入口 ===');
+  var LV = global.TTK.views, E = global.TTK.engine;
+  // 第 13 节为模拟刷新重新载入过视图层；清空旧模块留下的按钮回调，
+  // 由当前视图模块重新绑定，保证按钮闭包与重绘用的是同一份编辑状态。
+  ['studioValidate', 'studioCompile', 'studioSave', 'studioExample', 'reportExport', 'reportImport']
+    .forEach(function (id) { if (els[id]) els[id].handlers.click = []; });
+  var prevFetch = global.fetch, fetchCalls = 0;
+  global.fetch = function () { fetchCalls += 1; return Promise.reject(new Error('offline')); };
+  var html15 = read('index.html');
+  var viewsSrc15 = read('src/ui/views.js');
+  var appSrc15 = read('src/ui/app.js');
+
+  ok('I15 界面含服务地址 / 匿名 ID / 状态控件',
+    ['syncUrl', 'syncSave', 'syncClear', 'syncFlush', 'syncAnon', 'syncAnonApply', 'syncStatus']
+      .every(function (id) { return html15.indexOf('id="' + id + '"') >= 0; }), '');
+  ok('index.html 数据诚实措辞改为动态容器',
+    html15.indexOf('id="storageNotice"') >= 0 &&
+    html15.indexOf('记录仅保存在本机浏览器，不上传</div>') < 0 &&
+    appSrc15.indexOf('updateStorageNotice') >= 0, '');
+  ok('视图层不执行任意 JS、不发网络请求',
+    !/\beval\s*\(/.test(viewsSrc15) && !/new\s+Function\s*\(/.test(viewsSrc15) &&
+    viewsSrc15.indexOf('fetch(') < 0, '');
+
+  /* --- I2：导出符合 schema、能重新导入、随数据变化 --- */
+  LV.go('report');
+  ok('报告视图提供导出 / 导入按钮',
+    !!els['reportExport'] && !!els['reportImport'] && !!els['reportImportFile'], '');
+  var exported = LV.exportReport(), trace = null, parseErr = '';
+  try { trace = JSON.parse(exported || ''); } catch (e) { parseErr = e.message; }
+  var topKeys = ['schema', 'exportedAt', 'notice', 'summary', 'events', 'progress', 'stuck', 'customTemplates'];
+  var eventKeys = ['at', 'tpl', 'name', 'reason', 'params', 'insight'];
+  ok('导出 JSON 符合 learning-trace v1 且字段全在白名单内',
+    !!trace && trace.schema === 'ttk.learning-trace.v1' && Array.isArray(trace.events) &&
+    typeof trace.notice === 'string' &&
+    Object.keys(trace).every(function (k) { return topKeys.indexOf(k) >= 0; }) &&
+    trace.events.every(function (e) {
+      return Object.keys(e).every(function (k) { return eventKeys.indexOf(k) >= 0; });
+    }), parseErr);
+  ok('导出数据不含姓名 / 学校 / 设备标识字段',
+    !!exported && !/deviceId|school|studentName|ipAddress|"ip"\s*:/i.test(exported), '');
+  ok('无自动下载能力时仍给出可复制的导出文本',
+    els['reportExportText'] && els['reportExportText'].value === exported, '');
+  var imported = LV.importReport(exported);
+  ok('导出的 JSON 能重新导入', imported === true && D.trail().length === trace.events.length,
+    'trail=' + D.trail().length + ' events=' + (trace ? trace.events.length : -1));
+  var reportBefore = els['view-report'].innerHTML;
+  D.log({ at: Date.now(), tpl: TTK.templates[0].id, name: TTK.templates[0].name,
+    reason: 'param', params: {}, insight: 'I2 即时重绘断言' });
+  var reportAfter = els['view-report'].innerHTML;
+  ok('聚合卡片 / 图表 / 掌握度 / 时间线随数据即时变化',
+    reportAfter !== reportBefore && reportAfter.indexOf('I2 即时重绘断言') >= 0, '');
+
+  /* --- I3：粘贴示例可挂载、非法公式定位、刷新后仍在 --- */
+  var spring = JSON.parse(read('contracts/examples/spring.json'));
+  LV.go('studio');
+  els['studioJson'].value = JSON.stringify(spring, null, 2);
+  var compileErr = '';
+  try { els['studioCompile'].handlers.click[0](); } catch (e) { compileErr = e.message; }
+  ok('粘贴 spring.json 可直接编译挂载', !compileErr && !!E.get('spring') &&
+    E.get('spring').custom === true, compileErr);
+  ok('挂载后自动切到沙盒且 hash 带模板 id',
+    !!LV.current() && LV.current().id === 'sandbox' &&
+    String(global.location.hash).indexOf('#sandbox/spring') === 0 &&
+    appSrc15.indexOf('engine.select(payload.tpl)') >= 0,
+    String(global.location.hash) + ' / ' + (LV.current() && LV.current().id));
+
+  LV.go('studio');
+  var evil = JSON.parse(JSON.stringify(spring));
+  evil.id = 'verify_evil';
+  evil.series[0].expr = 'window.alert(1)';
+  els['studioJson'].value = JSON.stringify(evil, null, 2);
+  var validateErr = '';
+  try { els['studioValidate'].handlers.click[0](); } catch (e) { validateErr = e.message; }
+  var studioHtml = els['view-studio'].innerHTML;
+  ok('非法公式给出行号 / 字段 / 标识符的可读定位', !validateErr &&
+    /第 \d+ 行/.test(studioHtml) && studioHtml.indexOf('series[0].expr') >= 0 &&
+    studioHtml.indexOf('window') >= 0, studioHtml.slice(0, 180));
+  ok('白名单外的公式不会被挂载', !E.get('verify_evil'), '');
+
+  var customSpec = JSON.parse(JSON.stringify(spring));
+  customSpec.id = 'verify_custom';
+  customSpec.name = '校验用模板';
+  els['studioJson'].value = JSON.stringify(customSpec, null, 2);
+  var saveErr = '';
+  try { els['studioSave'].handlers.click[0](); } catch (e) { saveErr = e.message; }
+  ok('保存写入 ttk.custom.v1 且已挂载', !saveErr &&
+    D.custom().some(function (s) { return s && s.id === 'verify_custom'; }) &&
+    !!E.get('verify_custom'), saveErr);
+  E.unregister('verify_custom');
+  var restored = TTK.app.restoreCustom();
+  ok('刷新后自定义模板仍在（恢复入口幂等）', restored >= 1 &&
+    !!E.get('verify_custom') && E.get('verify_custom').custom === true, String(restored));
+
+  /* --- I14：节点数随注册 / 卸载，掌握度随挑战完成 --- */
+  LV.go('graph');
+  var probe = JSON.parse(JSON.stringify(spring));
+  probe.id = 'graph_probe';
+  probe.name = '图谱探针';
+  var pv = TTK.dsl.validate(probe, []);
+  var graphBefore = els['view-graph'].innerHTML;
+  E.register(TTK.dsl.compile(probe, pv));
+  var graphAfter = els['view-graph'].innerHTML;
+  ok('节点数量随 engine.register 同步变化',
+    graphBefore.indexOf('graph_probe') < 0 && graphAfter.indexOf('graph_probe') >= 0, '');
+  E.unregister('graph_probe');
+  ok('节点数量随 engine.unregister 同步变化',
+    els['view-graph'].innerHTML.indexOf('graph_probe') < 0, '');
+  function masteryOf(id) {
+    var m = new RegExp('data-node="' + id + '" data-mastery="([0-9.]+)"').exec(els['view-graph'].innerHTML);
+    return m ? Number(m[1]) : -1;
+  }
+  var target = TTK.templates[0];
+  var prog15 = D.progress();           // 先清掉一条，保证这次标记一定改变掌握度
+  prog15[target.id + ':0'] = false;
+  D.write(D.keys.progress, prog15);
+  var mBefore = masteryOf(target.id);
+  D.markChallenge(target.id, 0);
+  var mAfter = masteryOf(target.id);
+  ok('掌握度颜色数值随挑战完成变化并即时重绘', mBefore >= 0 && mAfter > mBefore,
+    mBefore + ' -> ' + mAfter);
+  ok('图谱节点可点击跳转沙盒',
+    viewsSrc15.indexOf("g.addEventListener('click'") >= 0 &&
+    viewsSrc15.indexOf("go('sandbox', g.getAttribute('data-node'))") >= 0, '');
+
+  /* --- I15：配置刷新保留、状态即时重绘、零网络请求 --- */
+  ok('界面装配订阅 TTK.data.subscribe 并接数据层配置入口',
+    appSrc15.indexOf('data.subscribe(onDataChange)') >= 0 &&
+    appSrc15.indexOf('data.remote.configure') >= 0, '');
+  ok('默认本地模式且未配置服务地址', D.remote.mode === 'local' && !D.remote.endpoint, D.remote.mode);
+  var flushErr = '';
+  try { els['syncFlush'].handlers.click[0](); } catch (e) { flushErr = e.message; }
+  ok('未配置时零网络请求', !flushErr && fetchCalls === 0, flushErr + ' calls=' + fetchCalls);
+  var url15 = 'http://127.0.0.1:8787/v1';
+  els['syncUrl'].value = url15;
+  els['syncSave'].handlers.click[0]();
+  ok('界面可配置服务地址并切到同步模式',
+    D.remote.mode === 'rest' && D.remote.endpoint === url15, D.remote.mode);
+  ok('服务地址写入本机（刷新后可恢复）',
+    JSON.stringify(D.read(D.keys.remote) || {}).indexOf(url15) >= 0, '');
+  ok('匿名 ID 由数据层持久化为 16 位十六进制',
+    /^[0-9a-f]{16}$/.test(String(D.read(D.keys.anon) || '')),
+    String(D.read(D.keys.anon) || ''));
+  ok('同步状态显示待上传数 / 最近错误 / 匿名 ID',
+    ['模式：', '待上传：', '最近错误：', '匿名 ID：'].every(function (k) {
+      return String(els['syncStatus'].textContent).indexOf(k) >= 0;
+    }), String(els['syncStatus'].textContent).slice(0, 120));
+  ok('启用同步后数据诚实文案同步更新',
+    String(els['storageNotice'].textContent).indexOf('已启用同步') >= 0,
+    String(els['storageNotice'].textContent));
+  els['syncAnon'].value = 'not-valid';
+  els['syncAnonApply'].handlers.click[0]();
+  ok('匿名 ID 输入有格式校验',
+    String(els['syncStatus'].textContent).indexOf('16 位十六进制') >= 0, '');
+  els['syncClear'].handlers.click[0]();
+  ok('可恢复本地模式且全程零网络请求',
+    D.remote.mode === 'local' && String(els['storageNotice'].textContent).indexOf('不上传') >= 0 &&
+    fetchCalls === 0, 'calls=' + fetchCalls);
+
+  global.fetch = prevFetch;
 }
 
 function finish() {
