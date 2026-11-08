@@ -1,0 +1,36 @@
+{
+  "chart": {
+    "panels": [
+      {
+        "title": "弹簧振子 · 位移随时间变化",
+        "xLabel": "时间 (s)",
+        "yLabel": "位移 (m)",
+        "xDomain": [0, 2],
+        "series": [
+          {
+            "name": "位移 x(t)",
+            "color": "#4f46e5",
+            "style": "line",
+            "width": 2,
+            "points": [[0, 1], [0.5, 0.8775825618903728], [1, 0.5403023058681398], [1.5, 0.0707372016677029], [2, -0.4161468365471424]]
+          },
+          {
+            "name": "包络 +A",
+            "color": "#94a3b8",
+            "style": "dashed",
+            "width": 1.6,
+            "points": [[0, 1], [2, 1]]
+          }
+        ],
+        "markers": [{ "x": 0, "y": 1, "label": "初始位移", "color": "#e11d48" }],
+        "guides": [{ "axis": "y", "value": 0, "label": "平衡位置", "color": "#94a3b8" }],
+        "bands": []
+      }
+    ]
+  },
+  "metrics": [
+    { "label": "角频率", "value": 1, "unit": "rad/s", "digits": 2, "tone": "plain", "hint": "√(k/m)" }
+  ],
+  "insight": "拖动劲度系数：曲线横向压缩，但高度不变。",
+  "m": { "omega": 1, "period": 6.283185307179586 }
+}

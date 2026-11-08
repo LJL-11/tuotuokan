@@ -72,8 +72,10 @@ console.log('=== 4. 共享契约与可执行样例 ===');
 var contractFiles = [
   'contracts/template.schema.json',
   'contracts/learning-trace.schema.json',
+  'contracts/compute-result.schema.json',
   'contracts/examples/spring.json',
   'contracts/examples/trace.json',
+  'contracts/examples/compute-result.json',
   'package.json'
 ];
 var parsed = {};
@@ -89,6 +91,11 @@ ok('trace 样例为 v1 且含 events', parsed['contracts/examples/trace.json']
   && Array.isArray(parsed['contracts/examples/trace.json'].events), '');
 var schema = parsed['contracts/template.schema.json'] || {};
 ok('模板 schema 声明了必填字段', Array.isArray(schema.required) && schema.required.indexOf('params') >= 0, '');
+var crSchema = parsed['contracts/compute-result.schema.json'] || {};
+ok('ComputeResult schema 声明 v1 与四个顶层字段', /v1/.test(crSchema.title || '')
+  && ['chart', 'metrics', 'insight', 'm'].every(function (k) {
+    return (crSchema.required || []).indexOf(k) >= 0;
+  }), '');
 
 console.log('=== 5. 加载运行时模块 ===');
 global.window = global;
@@ -302,6 +309,139 @@ X8.validate('p.A');
 ok('I8 validate 只编译不读取作用域', touched8 === 0, '读取 ' + touched8 + ' 次');
 ok('I8 validate 产物可复用且数值正确', typeof X8.validate('p.A * 2').fn === 'function'
   && X8.validate('p.A * 2').fn(scope8({ A: 4 })) === 8);
+
+console.log('=== 8c. I9：模拟骨架（时间步进 / 播放暂停 / 调速 / 静态兼容） ===');
+var S9 = TTK.sim;
+ok('模拟运行时导出完整', !!S9 && ['register', 'unregister', 'registered', 'mount',
+  'supported', 'bindControls', 'setRenderer', 'onDeactivate', 'attach', 'play',
+  'pause', 'toggle', 'stop', 'reset', 'setSpeed', 'step', 'advance', 'state', 'spec']
+  .every(function (k) { return typeof S9[k] === 'function'; }), '');
+ok('未 mount 时引擎不预置任何模板特判', S9.registered().length === 0, S9.registered().join(','));
+var mounted9 = S9.mount(engine);
+ok('mount 从模板 sim 元数据发现单摆与 SIR', mounted9.length === 2
+  && mounted9.indexOf('oscillation') >= 0 && mounted9.indexOf('epidemic') >= 0,
+  mounted9.join(','));
+ok('带 sim 元数据的模板恰为单摆与 SIR', TTK.templates.filter(function (t) {
+  return !!t.sim;
+}).map(function (t) { return t.id; }).join(',') === 'oscillation,epidemic', '');
+ok('supported 只认模板能力，不认模板名', S9.supported('oscillation', engine) === true
+  && S9.supported('epidemic', engine) === true && S9.supported('overfit', engine) === false, '');
+var simSrcHead9 = read('src/core/engine.js').split('模拟运行时（#I9）')[1] || '';
+ok('引擎不含内置 ODE 映射表或模板 id 特判', !/SIM_BUILTINS/.test(read('src/core/engine.js'))
+  && !/['"](oscillation|epidemic|overfit)['"]/.test(simSrcHead9), '');
+ok('模拟控件静态声明在 index.html', /id="simBar"/.test(html)
+  && /id="simPlayBtn"/.test(html) && /id="simSpeed"/.test(html)
+  && /id="simResetBtn"/.test(html) && /id="simLabel"/.test(html), '');
+ok('app.js 用 mount / bindControls / setRenderer 正规接入', /sim\.mount\(engine\)/.test(appSrc)
+  && /sim\.bindControls\(/.test(appSrc) && /sim\.setRenderer\(renderer\)/.test(appSrc), '');
+var staticBefore9 = TTK.templates.map(function (t) {
+  return JSON.stringify(t.compute(engine.defaults(t), TTK.math));
+}).join('|');
+var revBefore9 = engine.revision, stateBefore9 = engine.state;
+var trailBefore9 = TTK.data.trail().length;
+ok('attach 不支持动态模拟的模板返回 false', S9.attach('overfit', engine) === false, '');
+ok('attach 单摆成功', S9.attach('oscillation', engine) === true, '');
+var s90 = S9.state();
+ok('初始状态 t=0 / 步数 0 / 未播放', s90.active && !s90.playing && s90.t === 0
+  && s90.steps === 0 && s90.total === 1401 && s90.dt === 0.01, JSON.stringify(s90));
+ok('初始积分状态等于模板初始条件', Math.abs(s90.y[0] -
+  engine.defaults(engine.get('oscillation')).theta0 * Math.PI / 180) < 1e-12 && s90.y[1] === 0, '');
+var oscStatic9 = engine.get('oscillation').compute(engine.defaults(engine.get('oscillation')), TTK.math);
+ok('帧 spec 顶层字段与静态 ComputeResult 一致', Object.keys(S9.spec()).sort().join(',')
+  === Object.keys(oscStatic9).sort().join(','), Object.keys(S9.spec()).join(','));
+ok('首帧 spec 坐标合法', issuesOf(S9.spec()).length === 0, issuesOf(S9.spec()).join(';'));
+ok('首帧时间序列只揭示 1 个点', S9.spec().chart.panels[0].series[2].points.length === 1, '');
+S9.step(500);
+var s9500 = S9.state();
+ok('固定步进 500 步后 t=5s', Math.abs(s9500.t - 5) < 1e-9 && s9500.steps === 500,
+  't=' + s9500.t + ' steps=' + s9500.steps);
+ok('单摆积分与静态曲线逐点一致', Math.abs(s9500.y[0] * 180 / Math.PI -
+  oscStatic9.chart.panels[0].series[2].points[500][1]) < 1e-9, '');
+ok('相图同步按帧揭示', S9.spec().chart.panels[1].series[0].points.length === 501, '');
+ok('帧 spec 带当前状态标记', S9.spec().chart.panels[0].markers.some(function (m) {
+  return m.label === '当前摆角';
+}), '');
+S9.setSpeed(1); S9.play();
+ok('play 进入播放态', S9.state().playing === true, '');
+S9.advance(1000);
+ok('1× 速度 1000ms 推进 1 秒', Math.abs(S9.state().t - 6) < 1e-9, '实际 ' + S9.state().t);
+S9.pause();
+var paused9 = JSON.stringify(S9.state());
+S9.advance(5000);
+ok('暂停时状态不漂移', JSON.stringify(S9.state()) === paused9, '');
+ok('pause 后为暂停态', S9.state().playing === false, '');
+S9.reset(); S9.setSpeed(2); S9.play(); S9.advance(1000);
+ok('2× 速度 1000ms 推进 2 秒', Math.abs(S9.state().t - 2) < 1e-9, '实际 ' + S9.state().t);
+ok('非法速度被拒且不影响当前速度', S9.setSpeed(0) === false && S9.setSpeed(-3) === false
+  && S9.state().speed === 2, '');
+ok('速度超上限被钳制', S9.setSpeed(100) === true && S9.state().speed === 8, '');
+ok('速度低于下限被钳制', S9.setSpeed(0.01) === true && S9.state().speed === 0.25, '');
+S9.reset();
+ok('reset 回到 t=0 且状态归位', S9.state().t === 0 && S9.state().steps === 0
+  && Math.abs(S9.state().y[1]) < 1e-12, '');
+S9.step(1e9);
+ok('步进越界被钳制在总时长内', S9.state().steps === 1400
+  && Math.abs(S9.state().t - 14) < 1e-9 && S9.state().progress === 1, JSON.stringify(S9.state()));
+ok('播完后自动停止', S9.state().playing === false, '');
+ok('SIR 沙盒可 attach', S9.attach('epidemic', engine) === true, '');
+S9.step(300);
+var sirStatic9 = engine.get('epidemic').compute(engine.defaults(engine.get('epidemic')), TTK.math);
+ok('SIR 积分与静态曲线逐点一致', Math.abs(S9.state().y[1] -
+  sirStatic9.chart.panels[0].series[1].points[300][1]) < 1e-9, '');
+ok('与时间无关的 R0 扫描曲线原样保留', S9.spec().chart.panels[1].series[0].points.length === 32, '');
+ok('SIR 帧 spec 坐标合法', issuesOf(S9.spec()).length === 0, issuesOf(S9.spec()).join(';'));
+S9.register('__i9_probe__', {
+  dt: 0.1, duration: function () { return 1; },
+  state0: function () { return [0]; }, deriv: function (t, s) { return [1]; }
+});
+ok('ODE 沙盒可运行时注册 / 卸载', S9.registered().indexOf('__i9_probe__') >= 0
+  && S9.unregister('__i9_probe__') === true && S9.registered().indexOf('__i9_probe__') < 0, '');
+var simSrc9 = read('src/core/engine.js').split('模拟运行时（#I9）')[1] || '';
+ok('模拟运行时不引入随机数', !/Math\.random\s*\(/.test(simSrc9), '');
+ok('模拟运行时不广播 change 事件', !/emit\s*\(\s*['"]change['"]/.test(simSrc9), '');
+ok('未新增 script 标签（随 engine.js 加载）', !/sim\.js/.test(html), '');
+ok('模拟过程不触发引擎重算（revision / state 不变）', engine.revision === revBefore9
+  && engine.state === stateBefore9, '');
+ok('模拟过程不写学习轨迹', TTK.data.trail().length === trailBefore9, '');
+ok('10 个静态模板数值一个不变', TTK.templates.map(function (t) {
+  return JSON.stringify(t.compute(engine.defaults(t), TTK.math));
+}).join('|') === staticBefore9, '');
+S9.stop();
+ok('stop 后不再播放且状态冻结', S9.state().active === false && S9.state().playing === false, '');
+ok('未 attach 时 play 不启动', S9.play() === false, '');
+
+// 控件由 UI 层静态声明，运行时只做状态同步；这里用轻量 DOM 桩验证显隐与文案
+var bar9 = { hidden: null }, btn9 = {}, speed9 = {}, reset9 = {}, label9 = {};
+S9.bindControls({ bar: bar9, btn: btn9, speed: speed9, resetBtn: reset9, label: label9 });
+ok('未选中可模拟概念时控制条隐藏', bar9.hidden === true && btn9.disabled === true, '');
+S9.attach('oscillation', engine);
+ok('可模拟概念下控制条显示且按钮可用', bar9.hidden === false && btn9.disabled === false, '');
+ok('状态标签单位来自模板元数据（单摆 s）', /t=0\.00s/.test(label9.textContent), label9.textContent);
+S9.play(); S9.advance(100);
+ok('播放时按钮文案切换为暂停', btn9.textContent === '暂停', btn9.textContent);
+S9.pause();
+ok('暂停后按钮文案恢复播放', btn9.textContent === '播放模拟', btn9.textContent);
+S9.attach('epidemic', engine);
+ok('状态标签单位来自模板元数据（SIR 天）', /t=0\.00天/.test(label9.textContent), label9.textContent);
+S9.stop();
+S9.bindControls(null);
+
+// ComputeResult 契约四处同步后的形状校验（schema / 样例 / dsl.js / docs/01）
+var crSampleV = TTK.dsl.validateResult(parsed['contracts/examples/compute-result.json']);
+ok('compute-result 样例通过 validateResult', crSampleV.ok, crSampleV.errors.join('；'));
+var crBadV = TTK.dsl.validateResult({
+  chart: { panels: [{ series: [{ name: 'x', points: [[0, NaN]] }] }] },
+  metrics: [{ label: '坏值', value: Infinity }], insight: '', m: {}
+});
+ok('validateResult 能拦下 NaN 坐标与无穷指标', crBadV.ok === false, '');
+ok('10 个模板的 compute 输出都符合 ComputeResult 契约', TTK.templates.every(function (t) {
+  return TTK.dsl.validateResult(t.compute(engine.defaults(t), TTK.math)).ok;
+}), '');
+S9.attach('oscillation', engine);
+var frameV = TTK.dsl.validateResult(S9.spec());
+ok('模拟帧复用 ComputeResult 形状且未新增字段', frameV.ok
+  && Object.keys(S9.spec()).sort().join(',') === 'chart,insight,m,metrics', frameV.errors.join('；'));
+S9.stop();
 
 console.log('=== 9. 数据层 / 图谱 / 视图骨架 ===');
 var graph = TTK.createGraph(engine, TTK.data);

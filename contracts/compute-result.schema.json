@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "拖拖看 ComputeResult v1",
+  "description": "RuntimeTemplate.compute(p, M) 的返回值。字段语义见 docs/01-接口契约.md 第 3 节。#I9 的模拟帧复用同一形状，不新增字段；播放进度从 TTK.sim.state() 读取。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["chart", "metrics", "insight", "m"],
+  "properties": {
+    "chart": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "panels": {
+          "type": "array",
+          "description": "多面板布局；省略时由渲染器按单面板处理",
+          "items": { "$ref": "#/definitions/panel" }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/metric" }
+    },
+    "insight": { "type": "string", "description": "当前参数下的一句话洞察" },
+    "m": {
+      "type": "object",
+      "description": "模板与 challenges.check 的私有中间量通道，不放展示文案"
+    }
+  },
+  "definitions": {
+    "point": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "[x, y]，必须是有限数；NaN / Infinity / null 会被 CI 判为失败"
+    },
+    "series": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "points"],
+      "properties": {
+        "name": { "type": "string" },
+        "color": { "type": "string" },
+        "points": { "type": "array", "items": { "$ref": "#/definitions/point" } },
+        "style": { "enum": ["line", "dashed", "area", "scatter", "bar"] },
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "fill": { "type": ["string", "boolean"] }
+      }
+    },
+    "marker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "label": { "type": "string" },
+        "color": { "type": "string" }
+      }
+    },
+    "guide": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["axis", "value"],
+      "properties": {
+        "axis": { "enum": ["x", "y"] },
+        "value": { "type": "number" },
+        "label": { "type": "string" },
+        "color": { "type": "string" }
+      }
+    },
+    "band": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["axis", "from", "to"],
+      "properties": {
+        "axis": { "enum": ["x", "y"] },
+        "from": { "type": "number" },
+        "to": { "type": "number" },
+        "color": { "type": "string" },
+        "label": { "type": "string" }
+      }
+    },
+    "panel": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string" },
+        "xLabel": { "type": "string" },
+        "yLabel": { "type": "string" },
+        "xDomain": { "$ref": "#/definitions/domain" },
+        "yDomain": { "$ref": "#/definitions/domain" },
+        "series": { "type": "array", "items": { "$ref": "#/definitions/series" } },
+        "markers": { "type": "array", "items": { "$ref": "#/definitions/marker" } },
+        "guides": { "type": "array", "items": { "$ref": "#/definitions/guide" } },
+        "bands": { "type": "array", "items": { "$ref": "#/definitions/band" } }
+      }
+    },
+    "domain": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "value"],
+      "properties": {
+        "label": { "type": "string" },
+        "value": {
+          "type": ["number", "string"],
+          "description": "有限数，或简短状态词（如「已收敛」/「发散」）；app.js 的指标卡两种都渲染"
+        },
+        "unit": { "type": "string" },
+        "digits": { "type": "number" },
+        "tone": { "enum": ["good", "warn", "bad", "plain"] },
+        "hint": { "type": "string" }
+      }
+    }
+  }
+}

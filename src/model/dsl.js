@@ -101,6 +101,48 @@
     try { var v = fn(sc); return isNum(v) ? v : NaN; } catch (e) { return NaN; }
   }
 
+  /* ComputeResult 形状校验（与 contracts/compute-result.schema.json 同步）
+   * 零依赖手写实现：CI 用它检查样例、全部模板输出与 #I9 模拟帧。
+   * 只收集前 6 条错误，避免大点数序列把日志刷爆。 */
+  function validateResult(r) {
+    var errors = [];
+    function bad(msg) { if (errors.length < 6) errors.push(msg); }
+    if (!r || typeof r !== 'object' || Array.isArray(r)) {
+      return { ok: false, errors: ['ComputeResult 必须是对象'] };
+    }
+    if (typeof r.insight !== 'string') bad('insight 需为字符串');
+    if (!r.m || typeof r.m !== 'object' || Array.isArray(r.m)) bad('m 需为对象');
+    if (!Array.isArray(r.metrics)) bad('metrics 需为数组');
+    else r.metrics.forEach(function (mt, i) {
+      if (!mt || typeof mt.label !== 'string') bad('metrics[' + i + '].label 缺失');
+      if (!mt || !(isNum(mt.value) || typeof mt.value === 'string')) {
+        bad('metrics[' + i + '].value 需为有限数或状态词');
+      }
+    });
+    if (!r.chart || typeof r.chart !== 'object') bad('chart 缺失');
+    else if (r.chart.panels !== undefined) {
+      if (!Array.isArray(r.chart.panels)) bad('chart.panels 需为数组');
+      else r.chart.panels.forEach(function (pane, i) {
+        if (!pane || !Array.isArray(pane.series)) {
+          bad('chart.panels[' + i + '].series 需为数组'); return;
+        }
+        pane.series.forEach(function (s, j) {
+          if (!s || typeof s.name !== 'string' || !Array.isArray(s.points)) {
+            bad('chart.panels[' + i + '].series[' + j + '] 形状非法'); return;
+          }
+          for (var k = 0; k < s.points.length; k++) {
+            var pt = s.points[k];
+            if (!Array.isArray(pt) || pt.length !== 2 || !isNum(pt[0]) || !isNum(pt[1])) {
+              bad('chart.panels[' + i + '].series[' + j + '].points[' + k + '] 坐标非法');
+              break;
+            }
+          }
+        });
+      });
+    }
+    return { ok: errors.length === 0, errors: errors };
+  }
+
   function compile(spec, v) {
     v = v || validate(spec);
     if (!v.ok) throw new Error('模板校验未通过：' + v.errors.join('；'));
@@ -221,6 +263,7 @@
     palette: palette,
     example: example,
     validate: validate,
+    validateResult: validateResult,
     compile: compile,
     prompt: prompt,
     draft: draft,

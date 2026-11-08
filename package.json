@@ -8,6 +8,8 @@
     "check:anon": "node tools/check-anonymity.js",
     "check": "npm test && npm run api:smoke && npm run check:anon",
     "bench": "node tools/benchmark.js",
+    "check:browser": "node tools/browser-sim.js",
+    "probe:budget": "node tools/budget-probe.js",
     "api": "node services/api/server.js",
     "api:smoke": "node services/api/smoke.js",
     "api:browser": "node services/api/browser-check.js"

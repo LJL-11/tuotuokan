@@ -17,6 +17,15 @@
   TTK.engine = engine; // 便于控制台调试与后续接入 AI 生成
   TTK.graph = graph;   // 四视图 / 图谱可视化共用同一个实例
 
+  // #I9：模板的 sim 元数据由引擎统一发现；模拟帧复用同一个渲染器，
+  // 但绝不 emit change，学习轨迹与挑战判定只记录真实的参数交互。
+  var sim = TTK.sim;
+  sim.mount(engine);
+  sim.setRenderer(renderer);
+  sim.onDeactivate(function () {
+    if (engine.state) renderer.draw(engine.state.spec.chart);
+  });
+
   function $(id) { return document.getElementById(id); }
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -401,6 +410,30 @@
     return '「' + q + '」还没有精修模板，也还没配模型代理。' + tail;
   }
 
+  /* ---------------- #I9 模拟控件 ----------------
+   * 控件是 index.html 里的静态 DOM，运行时只负责状态同步与事件转发。
+   * 没点「播放模拟」之前不 attach，静态曲线保持完整，视觉零侵入。
+   */
+  function bindSimControls() {
+    sim.bindControls({
+      bar: $('simBar'), btn: $('simPlayBtn'), speed: $('simSpeed'),
+      resetBtn: $('simResetBtn'), label: $('simLabel')
+    });
+    $('simPlayBtn').addEventListener('click', function () {
+      if (!sim.supported(engine.currentId, engine)) {
+        toast('这个概念暂时没有动态模拟');
+        return;
+      }
+      if (!sim.state().active && !sim.attach(engine.currentId, engine)) {
+        toast('没能启动动态模拟');
+        return;
+      }
+      sim.toggle();
+    });
+    $('simSpeed').addEventListener('input', function () { sim.setSpeed(this.value); });
+    $('simResetBtn').addEventListener('click', function () { sim.reset(); });
+  }
+
   /* ---------------- 导航 ---------------- */
   function select(id) {
     switching = true;
@@ -412,12 +445,14 @@
 
   function init() {
     buildSidebar();
+    bindSimControls();
     updateBadge();
     Array.prototype.forEach.call(document.querySelectorAll('#viewNav .view-tab'), function (btn) {
       btn.addEventListener('click', function () { TTK.views.go(btn.getAttribute('data-view')); });
     });
     TTK.views.on(function (evt, payload) {
       if (evt !== 'change' || !payload || !payload.route) return;
+      if (payload.route.id !== 'sandbox') sim.pause();  // 离开沙盒时冻结，回来不补帧
       // 浏览器前进 / 后退带回了模板 id，静默切换，避免重复写 hash
       if (payload.tpl && engine.get(payload.tpl) && payload.tpl !== engine.currentId) {
         switching = true;

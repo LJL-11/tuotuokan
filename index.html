@@ -65,6 +65,15 @@
           </div>
           <div class="canvas-wrap">
             <canvas id="stage"></canvas>
+            <!-- #I9 模拟控件：静态声明，由 app.js 绑定；只在带 tpl.sim 的概念下显示 -->
+            <div id="simBar" class="sim-bar" hidden>
+              <button id="simPlayBtn" type="button" class="sim-btn primary">播放模拟</button>
+              <label class="sim-speed" for="simSpeed">速度
+                <input id="simSpeed" type="range" min="0.25" max="8" step="0.25" value="1" aria-label="播放速度">
+              </label>
+              <button id="simResetBtn" type="button" class="sim-btn">重置</button>
+              <span id="simLabel" class="sim-label">当前概念暂无动态模拟</span>
+            </div>
           </div>
           <div class="insight-box">
             <span class="insight-icon">✦</span>

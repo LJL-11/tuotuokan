@@ -430,6 +430,21 @@
       { key: 'g', label: '重力 g', min: 1, max: 20, step: 0.1, default: 9.8, unit: 'm/s²', hint: '越大回摆越快' }
     ],
     prerequisites: [],
+    // #I9：ODE 模拟能力由模板自己声明（可选元数据），引擎不认模板 id。
+    // dt / state0 / deriv 与下方 compute() 的静态积分共用同一套方程与步长，
+    // 保证按帧揭示的曲线和静态曲线逐点一致。
+    sim: {
+      dt: 0.01,
+      unit: 's',
+      duration: function () { return 14; },
+      state0: function (p) { return [p.theta0 * Math.PI / 180, 0]; },
+      deriv: function (t, s, p) {
+        return [s[1], -(p.g / p.L) * Math.sin(s[0]) - p.damp * s[1]];
+      },
+      marker: function (t, s) {
+        return { x: t, y: s[0] * 180 / Math.PI, label: '当前摆角', color: C.indigo };
+      }
+    },
     compute: function (p, M) {
       var dt = 0.01, T = 14, y = [p.theta0 * Math.PI / 180, 0], t = 0;
       var f = function (_, s) { return [s[1], -(p.g / p.L) * Math.sin(s[0]) - p.damp * s[1]]; };
@@ -510,6 +525,21 @@
       { key: 'days', label: '观察天数', min: 30, max: 200, step: 10, default: 120, unit: '天', hint: '把时间轴拉长看全貌' }
     ],
     prerequisites: ['gradient', 'logistic'],
+    // #I9：SIR 的时域曲线按天推进，duration 取自参数 days；
+    // 第二张 R₀ 扫描曲线点数与步数无关，模拟帧会原样保留。
+    sim: {
+      dt: 0.2,
+      unit: '天',
+      duration: function (p) { return p.days; },
+      state0: function (p) { return [1 - p.i0, p.i0, 0]; },
+      deriv: function (t, s, p) {
+        var inf = p.beta * s[0] * s[1];
+        return [-inf, inf - p.gamma * s[1], p.gamma * s[1]];
+      },
+      marker: function (t, s) {
+        return { x: t, y: s[1], label: '当前感染比例', color: C.coral };
+      }
+    },
     compute: function (p, M) {
       var dt = 0.2, steps = Math.round(p.days / dt);
       var f = function (_, s) {

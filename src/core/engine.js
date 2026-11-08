@@ -493,4 +493,339 @@
   TTK.Cache = Cache;
   TTK.Engine = Engine;
   TTK.createEngine = function () { return new Engine(); };
+
+  /* ---------------- 模拟运行时（#I9） ----------------
+   * 让 ODE 类沙盒按时间步进，ComputeResult 契约保持 v1 不变：
+   *   - ODE 定义是模板的可选元数据 tpl.sim（见 src/model/templates.js），
+   *     引擎只按通用形状消费，不认模板 id、不硬编码特判（contracts/README「三个不许」）；
+   *   - compute(p, M) 仍是纯函数，静态模板数值一个不变；
+   *   - 每帧只组装「现有 ComputeResult 形状」的 spec（chart/metrics/insight/m），不新增字段；
+   *   - 不 emit change，避免每帧污染学习轨迹（app.js 的 change handler 会 recordTrail）
+   *     与挑战判定；播放控件由 UI 层在 index.html 静态声明，经 bindControls 注入；
+   *   - 时间由「步数 × 固定 dt」反推，暂停/恢复不补帧、不漂移。
+   */
+  var SIM_SPEED_MIN = 0.25;
+  var SIM_SPEED_MAX = 8;
+
+  // tpl.sim 的通用形状校验：模板提供方程，引擎提供时钟与调度
+  function validSim(def) {
+    return !!def && typeof def.deriv === 'function' && typeof def.state0 === 'function'
+      && typeof def.duration === 'function' && def.dt > 0;
+  }
+
+  function createSimulation() {
+    var registry = Object.create(null);
+    var st = {
+      id: null, def: null, tpl: null, params: null, base: null, frame: null,
+      y: null, t: 0, steps: 0, total: 0, dt: 0,
+      active: false, playing: false, speed: 1, accumulator: 0,
+      lastWall: 0, rafId: null, renderer: null, controls: null,
+      boundEngine: null, watchedEngine: null, onDeactivate: []
+    };
+
+    function hasDom() {
+      var d = global.document;
+      return !!d && typeof d.createElement === 'function' && !!d.getElementById('stage');
+    }
+    function canAnimate() {
+      return hasDom() && typeof global.requestAnimationFrame === 'function'
+        && typeof global.cancelAnimationFrame === 'function' && typeof TTK.Renderer === 'function';
+    }
+    function cancelLoop() {
+      if (st.rafId !== null && typeof global.cancelAnimationFrame === 'function') {
+        global.cancelAnimationFrame(st.rafId);
+      }
+      st.rafId = null;
+    }
+    function snapshot() {
+      return {
+        id: st.id, active: st.active, playing: st.playing, speed: st.speed,
+        t: st.t, y: st.y ? st.y.slice() : null, steps: st.steps,
+        total: st.total, dt: st.dt,
+        progress: st.total > 1 ? Math.min(1, st.steps / (st.total - 1)) : 0
+      };
+    }
+
+    /* 统一 ODE 接口：任何模板都能运行时注册 / 卸载 */
+    function register(id, def) {
+      if (!id || typeof id !== 'string') throw new Error('ODE 沙盒 id 必须是字符串');
+      if (!validSim(def)) {
+        throw new Error('ODE 沙盒缺少 deriv/state0/duration/dt: ' + id);
+      }
+      registry[id] = def;
+      return sim;
+    }
+    function unregister(id) {
+      if (!registry[id]) return false;
+      delete registry[id];
+      if (st.id === id) stop();
+      return true;
+    }
+    function registered() { return Object.keys(registry); }
+
+    /* 模板元数据发现：app.js 注册完模板后调一次 mount(engine)。
+     * AI 生成 / 工坊新挂载的模板带 tpl.sim 时，attach() 也会懒发现。 */
+    function discover(tpl) {
+      if (!tpl || !tpl.id) return false;
+      if (registry[tpl.id]) return true;
+      if (!validSim(tpl.sim)) return false;
+      registry[tpl.id] = tpl.sim;
+      return true;
+    }
+    function mount(eng) {
+      eng = eng || TTK.engine;
+      if (!eng || typeof eng.all !== 'function') return [];
+      var ids = [];
+      eng.all().forEach(function (t) { if (discover(t)) ids.push(t.id); });
+      bindEngine(eng);
+      syncControls();
+      return ids;
+    }
+    function supported(id, eng) {
+      eng = eng || st.boundEngine || TTK.engine;
+      var tpl = eng && typeof eng.get === 'function' ? eng.get(id || (eng.currentId)) : null;
+      return !!(registry[id] || (tpl && validSim(tpl.sim)));
+    }
+
+    /* UI 层注入：控件是 index.html 里的静态 DOM，渲染器复用 app.js 的实例 */
+    function bindControls(els) {
+      st.controls = els || null;
+      syncControls();
+      return sim;
+    }
+    function setRenderer(r) { st.renderer = r || null; return sim; }
+    function onDeactivate(fn) {
+      if (typeof fn === 'function') st.onDeactivate.push(fn);
+      return sim;
+    }
+    function fireDeactivate() {
+      st.onDeactivate.slice().forEach(function (fn) {
+        try { fn(); } catch (e) { console.error('[TTK] sim deactivate hook error', e); }
+      });
+    }
+
+    /* 只截断「点数 == 总步数」的序列：时间序列与相图按帧揭示，
+     * 与步数无关的扫描曲线（如 R0 sweep）原样保留。规则通用，不认模板 id。 */
+    function buildFrame(idx) {
+      var base = st.base;
+      var panels = ((base.chart && base.chart.panels) || []).map(function (p, pi) {
+        var series = (p.series || []).map(function (s) {
+          var pts = s.points || [];
+          return {
+            name: s.name, color: s.color,
+            points: pts.length === st.total ? pts.slice(0, idx + 1) : pts,
+            style: s.style, width: s.width, fill: s.fill
+          };
+        });
+        var markers = (p.markers || []).slice();
+        if (pi === 0 && typeof st.def.marker === 'function') {
+          var mk = st.def.marker(st.t, st.y, st.params);
+          if (mk && isFinite(mk.x) && isFinite(mk.y)) {
+            markers = markers.concat([{ x: mk.x, y: mk.y, label: mk.label, color: mk.color }]);
+          }
+        }
+        return {
+          title: p.title, xLabel: p.xLabel, yLabel: p.yLabel,
+          xDomain: p.xDomain, yDomain: p.yDomain,
+          series: series, markers: markers,
+          guides: (p.guides || []).slice(), bands: (p.bands || []).slice()
+        };
+      });
+      return {
+        chart: { panels: panels },
+        metrics: base.metrics,
+        insight: base.insight,
+        m: base.m
+      };
+    }
+
+    function renderFrame() {
+      if (!hasDom() || !st.frame) return;
+      try {
+        var canvas = global.document.getElementById('stage');
+        if (!canvas || typeof canvas.getContext !== 'function') return;
+        if (!st.renderer && typeof TTK.Renderer === 'function') {
+          st.renderer = new TTK.Renderer(canvas);   // 仅无 app.js 时兜底
+        }
+        if (st.renderer) st.renderer.draw(st.frame.chart);
+      } catch (e) { /* 无 Canvas 环境（本地校验 / 后台标签）静默跳过 */ }
+    }
+
+    function integrate(n) {
+      if (!st.active || n <= 0) return 0;
+      var room = st.total - 1 - st.steps;
+      if (n > room) n = room;
+      var d = st.def, p = st.params;
+      var f = function (tt, ss) { return d.deriv(tt, ss, p); };  // rk4 只回传 (t, y)，参数由闭包注入
+      for (var i = 0; i < n; i++) {
+        st.y = TTK.math.rk4(f, st.t, st.y, d.dt);
+        st.steps++;
+      }
+      st.t = st.steps * d.dt;   // 由步数反推，长跑无浮点累积误差
+      st.frame = buildFrame(st.steps);
+      return n;
+    }
+
+    function syncControls() {
+      ensureWatch();
+      var c = st.controls;
+      if (!c) return;
+      var eng = st.boundEngine || TTK.engine;
+      var cur = eng && eng.currentId;
+      var can = st.active || supported(cur, eng);
+      if (c.bar) c.bar.hidden = !can;             // 静态概念上零视觉侵入
+      if (c.btn) {
+        c.btn.disabled = !can;
+        c.btn.textContent = st.playing ? '暂停' : '播放模拟';
+      }
+      if (c.speed) { c.speed.disabled = !st.active; c.speed.value = String(st.speed); }
+      if (c.resetBtn) c.resetBtn.disabled = !st.active;
+      if (c.label) {
+        var unit = (st.def && st.def.unit) || 's';   // 单位来自模板元数据，不认模板 id
+        c.label.textContent = !can ? '当前概念暂无动态模拟'
+          : !st.active ? '可播放动态模拟'
+            : (st.playing ? '播放中' : st.steps >= st.total - 1 ? '已结束' : '已暂停') +
+              ' · t=' + st.t.toFixed(2) + unit + ' · ' + st.speed + '×';
+      }
+    }
+
+    function ensureWatch() {
+      var e = TTK.engine;
+      if (!e || st.watchedEngine === e || typeof e.on !== 'function' || !st.controls) return;
+      st.watchedEngine = e;
+      ['select', 'change'].forEach(function (evt) {
+        e.on(evt, function () { syncControls(); });
+      });
+    }
+
+    /* 参数 / 概念一变，静态链路会立刻重画；模拟状态随之失效，自动停止 */
+    function bindEngine(eng) {
+      if (!eng || st.boundEngine === eng || typeof eng.on !== 'function') return;
+      st.boundEngine = eng;
+      ['select', 'param', 'reset', 'unregister'].forEach(function (evt) {
+        eng.on(evt, function () { if (st.active) stop(); });
+      });
+    }
+
+    function attach(id, eng) {
+      eng = eng || TTK.engine;
+      if (!eng || typeof eng.get !== 'function') return false;
+      var tplId = id || eng.currentId;
+      var tpl = eng.get(tplId);
+      if (!tpl) return false;
+      discover(tpl);                    // 运行时新挂载的模板也能被识别
+      var def = registry[tplId];
+      if (!def) return false;
+      var p = eng.currentId === tplId ? Object.assign({}, eng.params) : eng.defaults(tpl);
+      var base;
+      try { base = tpl.compute(p, TTK.math); } catch (e) { return false; }
+      stop();
+      st.id = tplId; st.def = def; st.tpl = tpl; st.params = p;
+      st.base = base; st.dt = def.dt;
+      st.total = Math.max(2, Math.round(def.duration(p) / def.dt) + 1);
+      st.y = def.state0(p).slice();
+      st.t = 0; st.steps = 0; st.active = true; st.playing = false;
+      st.frame = buildFrame(0);
+      renderFrame();
+      bindEngine(eng);
+      syncControls();
+      return true;
+    }
+
+    function advance(ms) {
+      if (!st.active || !st.playing) return snapshot();   // 暂停时零推进
+      if (typeof ms !== 'number' || !isFinite(ms) || ms <= 0) return snapshot();
+      st.accumulator += ms * st.speed / 1000;
+      var want = Math.floor(st.accumulator / st.dt);
+      if (want > 600) { want = 600; st.accumulator = 0; }  // 后台标签回来不补帧爆炸
+      else st.accumulator -= want * st.dt;
+      if (want > 0) integrate(want);
+      if (st.steps >= st.total - 1) { st.playing = false; cancelLoop(); }
+      renderFrame();
+      syncControls();
+      return snapshot();
+    }
+
+    function loop(now) {
+      if (!st.playing) return;
+      var wall = typeof now === 'number' ? now : nowMs();
+      var delta = Math.max(0, Math.min(wall - st.lastWall, 100));
+      st.lastWall = wall;
+      advance(delta);
+      if (st.playing && canAnimate()) st.rafId = global.requestAnimationFrame(loop);
+    }
+
+    function play() {
+      if (!st.active) return false;
+      if (st.steps >= st.total - 1) reset();
+      if (st.playing) return true;
+      st.playing = true;
+      st.accumulator = 0;
+      st.lastWall = nowMs();
+      if (canAnimate()) st.rafId = global.requestAnimationFrame(loop);
+      syncControls();
+      return true;
+    }
+    function pause() {
+      st.playing = false;
+      cancelLoop();
+      st.accumulator = 0;
+      st.lastWall = 0;
+      syncControls();
+      return snapshot();
+    }
+    function toggle() { return st.playing ? (pause(), true) : play(); }
+    function stop() {
+      var wasActive = st.active;
+      st.playing = false;
+      cancelLoop();
+      st.active = false;
+      st.accumulator = 0;
+      st.lastWall = 0;
+      syncControls();
+      // 让 UI 重画静态 spec，避免拖参数 / 切概念后画面停在模拟最后一帧
+      if (wasActive) fireDeactivate();
+      return snapshot();
+    }
+    function reset() {
+      if (!st.active) return false;
+      pause();
+      st.t = 0; st.steps = 0;
+      st.y = st.def.state0(st.params).slice();
+      st.frame = buildFrame(0);
+      renderFrame();
+      syncControls();
+      return true;
+    }
+    function setSpeed(x) {
+      var v = Number(x);
+      if (!isFinite(v) || v <= 0) return false;
+      st.speed = Math.min(SIM_SPEED_MAX, Math.max(SIM_SPEED_MIN, v));
+      syncControls();
+      return true;
+    }
+    function step(n) {
+      if (!st.active) return snapshot();
+      n = Math.floor(Number(n));
+      if (!isFinite(n) || n < 1) n = 1;
+      integrate(n);
+      if (st.steps >= st.total - 1) { st.playing = false; cancelLoop(); }
+      renderFrame();
+      syncControls();
+      return snapshot();
+    }
+
+    var sim = {
+      register: register, unregister: unregister, registered: registered,
+      mount: mount, supported: supported, discover: discover,
+      bindControls: bindControls, setRenderer: setRenderer, onDeactivate: onDeactivate,
+      attach: attach, play: play, pause: pause, toggle: toggle, stop: stop,
+      reset: reset, setSpeed: setSpeed, step: step, advance: advance,
+      state: snapshot,
+      spec: function () { return st.frame; }
+    };
+    return sim;
+  }
+
+  TTK.sim = createSimulation();
 })(window);
