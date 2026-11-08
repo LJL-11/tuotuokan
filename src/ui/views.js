@@ -406,7 +406,7 @@
       '<h3>各概念交互次数</h3>' + reportChart(engine, data) +
       '<h3>概念掌握度</h3>' + rows +
       '<h3>最近轨迹</h3><div class="timeline">' + timeline + '</div>',
-      '导出文件符合 contracts/learning-trace.schema.json，字段白名单校验后才允许下载；导入会合并本机记录。',
+      '导出文件符合 contracts/learning-trace.schema.json，字段白名单校验后才允许下载；导入会用文件内容覆盖本机记录（不是合并，请先导出备份）。',
       'M2');
     if (reportExportText) {
       var box = $('reportExportText');
