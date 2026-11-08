@@ -9,13 +9,13 @@
 - [ ] 只改了自己 owner 的目录
 - [ ] 改了 `contracts/`（已同步四处：schema / examples / dsl.js / docs/01）
 - [ ] 改了 `index.html` 脚本加载顺序（已和曹对清楚）
-- [ ] 属于交叉补位，已和对应 owner 说过
+- [ ] 属于交叉补位，已和对应 owner 说过（改到 `index.html` / `src/ui/` / `assets/` 时请先和付说一声，并在补充说明列出文件）
 
 ## 自检清单
 
 - [ ] `npm test` 通过
 - [ ] `npm run check:anon` 通过
-- [ ] 双击 `index.html` 能跑，原有 6 个沙盒交互没被破坏
+- [ ] 双击 `index.html` 能跑，10 个精修沙盒与四视图交互没被破坏
 - [ ] 模板里没有 `Math.random()` / DOM 操作 / 网络请求
 - [ ] 没有把密钥、真实姓名、校名、账号信息写进代码或文档
 - [ ] 新增引导挑战已经亲手拖到过、确认可达
