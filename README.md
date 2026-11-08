@@ -21,7 +21,7 @@
 仍在进行：#I9 模拟骨架（曹），以及偿还 Issue #19 / #20 / #21（真实 `/generate` 代理、多模态输入能力、
 生成模板持久化），见 [`docs/02-路线图与任务看板.md`](docs/02-路线图与任务看板.md)。
 
-校验基线：`npm test` **264 项**、`npm run api:smoke` **30 项**、`npm run api:browser` **31 项**、
+校验基线：`npm test` **267 项**、`npm run api:smoke` **30 项**、`npm run api:browser` **31 项**、
 `npm run check:anon` PASS（`npm run check` = test + api:smoke + check:anon；api:browser 单独跑）。
 
 ---
