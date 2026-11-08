@@ -42,6 +42,124 @@
     toastTimer = setTimeout(function () { el.className = 'toast'; }, 3200);
   }
 
+  /* ---------------- #I3：自定义模板在刷新后恢复 ---------------- */
+  // 工坊保存的是纯 TemplateSpec（ttk.custom.v1），启动时统一走 dsl 校验 + 编译再注册。
+  // 坏数据只跳过，不阻断双击运行；已挂载的 id 不会重复注册（幂等，测试可再调一次）。
+  function restoreCustomTemplates() {
+    var list = data.custom();
+    if (!Array.isArray(list)) return 0;
+    var loaded = 0;
+    list.forEach(function (spec) {
+      if (!spec || typeof spec !== 'object' || !spec.id) return;
+      if (engine.get(spec.id)) { loaded++; return; }
+      var v;
+      try { v = TTK.dsl.validate(spec, []); } catch (e) { return; }
+      if (!v.ok) return;
+      try { engine.register(TTK.dsl.compile(spec, v)); loaded++; }
+      catch (e) { /* 跳过无法编译的模板 */ }
+    });
+    return loaded;
+  }
+
+  /* ---------------- #I15：同步产品入口 ---------------- */
+  var syncResult = '', renderingSync = false;
+  function currentAnonId() {
+    if (data.remote.mode !== 'rest') return ''; // 本地模式不生成匿名 ID
+    try { return data.remote.identity(); } catch (e) { return ''; }
+  }
+  function updateStorageNotice() {
+    var el = $('storageNotice');
+    if (!el) return;
+    el.textContent = data.remote.mode === 'rest'
+      ? '已启用同步：记录会按匿名 ID 上传到你配置的服务，不含姓名 / 学校 / 设备标识'
+      : '记录仅保存在本机浏览器，不上传';
+  }
+  function renderSyncStatus() {
+    if (renderingSync) return; // identity() 首次落盘会触发订阅，避免递归
+    renderingSync = true;
+    try {
+      var r = data.remote, el = $('syncStatus');
+      if (el) {
+        el.textContent = [
+          '模式：' + (r.mode === 'rest' ? '同步（已配置服务）' : '本地（不上传）'),
+          '服务地址：' + (r.endpoint || '未配置'),
+          '匿名 ID：' + (currentAnonId() || '未启用，本机不生成'),
+          '待上传：' + r.pending() + ' 条',
+          '最近错误：' + (r.lastError || '无'),
+          '本机存储：' + (r.storageError || '正常'),
+          '最近同步：' + (syncResult || '尚未执行')
+        ].join('\n');
+      }
+      updateStorageNotice();
+    } finally { renderingSync = false; }
+  }
+  function setSyncResult(text) { syncResult = text; renderSyncStatus(); }
+
+  function initSyncPanel() {
+    var urlEl = $('syncUrl'), anonEl = $('syncAnon');
+    if (urlEl) urlEl.value = data.remote.endpoint || '';
+    if (anonEl) anonEl.value = currentAnonId();
+    var save = $('syncSave');
+    if (save) save.addEventListener('click', function () {
+      var url = String((urlEl && urlEl.value) || '').trim();
+      try {
+        data.remote.configure(url);
+        setSyncResult(url ? '已启用同步，后台开始上传' : '已恢复本地模式');
+        toast(url ? '同步已启用' : '已恢复本地模式', 'ok');
+      } catch (e) {
+        setSyncResult('配置失败：' + e.message);
+        toast('服务地址无效：' + e.message);
+      }
+    });
+    var clear = $('syncClear');
+    if (clear) clear.addEventListener('click', function () {
+      data.remote.configure('');
+      if (urlEl) urlEl.value = '';
+      setSyncResult('已恢复本地模式，停止上传');
+      toast('已恢复本地模式', 'ok');
+    });
+    var flush = $('syncFlush');
+    if (flush) flush.addEventListener('click', function () {
+      var p = data.remote.flush();
+      if (p && typeof p.then === 'function') {
+        p.then(function (res) {
+          setSyncResult(res && res.ok ? '同步成功，读回 ' + (res.events || 0) + ' 条事件'
+            : (data.remote.mode === 'local' ? '本地模式，无需同步' : '同步失败：' + ((res && res.error) || '未知错误')));
+        });
+      } else setSyncResult('本地模式，无需同步');
+    });
+    var apply = $('syncAnonApply');
+    if (apply) apply.addEventListener('click', function () {
+      var value = String((anonEl && anonEl.value) || '').trim().toLowerCase();
+      if (!/^[0-9a-f]{16}$/.test(value)) { setSyncResult('匿名 ID 需为 16 位十六进制'); return; }
+      if (!global.confirm('切换匿名 ID 会隔离本机当前记录（不会删除已上传的历史）。建议先导出备份，确定继续？')) return;
+      var res = data.remote.identity(value);
+      if (res && res.ok) { setSyncResult('已切换到匿名 ID ' + res.anonId); toast('匿名 ID 已更新', 'ok'); }
+      else setSyncResult('身份无效：' + ((res && res.error) || '未知错误'));
+    });
+    renderSyncStatus();
+  }
+
+  function onDataChange() {
+    updateBadge();
+    renderSyncStatus();
+    var drawer = $('drawer');
+    if (drawer && drawer.classList && typeof drawer.classList.contains === 'function' &&
+      drawer.classList.contains('open')) renderDrawer();
+  }
+
+  // 模板注册 / 卸载后，侧栏与当前视图（尤其图谱节点数）立即同步。
+  engine.on('register', function () {
+    buildSidebar();
+    if (TTK.views && TTK.views.refresh) TTK.views.refresh();
+  });
+  engine.on('unregister', function () {
+    buildSidebar();
+    if (TTK.views && TTK.views.refresh) TTK.views.refresh();
+  });
+
+  TTK.app = { restoreCustom: restoreCustomTemplates, renderSyncStatus: renderSyncStatus };
+
   /* ---------------- 侧栏：概念库 ---------------- */
   function buildSidebar() {
     var subjects = engine.subjects();
@@ -444,6 +562,7 @@
   }
 
   function init() {
+    restoreCustomTemplates(); // 刷新后把工坊保存的模板重新挂进引擎
     buildSidebar();
     bindSimControls();
     updateBadge();
@@ -504,6 +623,8 @@
       if (e.key === 'Escape') closeDrawer();
     });
 
+    initSyncPanel();
+    data.subscribe(onDataChange);
     var initial = TTK.views.start(); // 解析 hash，决定刷新后停在哪个视图
     select(engine.get(initial.tpl) ? initial.tpl : engine.all()[0].id);
   }

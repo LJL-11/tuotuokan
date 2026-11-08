@@ -4,12 +4,25 @@
 > 而是一套「参数 + 关系/模型 + 可观测指标」的通用引擎。
 > 赛题 1 · AI 赋能学习生产力 | 第二十届全国大学生软件创新大赛
 
-**当前状态：M0 框架就绪，M1 四视图可跑。** v0 原型已可运行（6 个跨学科概念）。
-#I13 已完成：学习数据统一走 `TTK.data`、卡点推荐统一走 `TTK.createGraph`，旧版本地轨迹可平滑迁移；
-#I1 已完成：图谱 / 沙盒 / 报告 / 工坊四视图可切换，hash 格式 `#<view>/<tplId>`，刷新保持当前视图。
-#I7 / #I8 已完成（PR #16）：引擎插件化、模板级缓存与重算预算，表达式求值器安全加固；`npm run check` 191 项全过。
-其余未完成的输入层 / AI 生成 / 跨设备同步 / 模拟骨架 #I9 / 视图精修 #I2 / #I3 / #I14，
-已按分工拆成可认领的 issue，见 [`docs/02-路线图与任务看板.md`](docs/02-路线图与任务看板.md)。
+**当前状态：M1 四视图可跑、M2 输入与生成闭环接通、M3 前端同步入口接通、静态站已上线。**
+双击 `index.html` 即可运行，内置 **10 个跨学科精修概念**；线上地址
+<https://ljl-11.github.io/tuotuokan/>（GitHub Pages，仅托管静态文件）。
+
+网页 Issue 已关闭的交付：#I13 数据层统一、#I1 四视图路由（hash `#<view>/<tplId>`，刷新保持）、
+#I7 / #I8 引擎插件化与表达式安全加固（PR #16）、#I10 REST 适配器、#I11 匿名账号与跨设备同步数据侧、
+#I12 CI 与 Pages 部署、#I4 模板生成（输出校验 / 失败重试 / 本地降级）、#I5 多模态概念识别、
+#I6 模板库扩充与先修关系补全。
+
+付名下 4 条已按 Issue 验收框实现并自验，**待网页勾选关闭**：#I2 学习报告（聚合卡片 / 掌握度 /
+时间线 / 各概念柱状图 / 匿名导出导入）、#I3 模板工坊（校验报错定位 → expr 白名单编译 → 挂载拖动 →
+刷新保留）、#I14 概念图谱（先修边 / 掌握度配色 / 节点数随注册卸载变化 / 点击跳沙盒）、
+#I15 同步产品入口（服务地址 / 匿名 ID / 待上传数 / 最近错误 / 即时重绘 / 数据诚实文案）。
+
+仍在进行：#I9 模拟骨架（曹），以及偿还 Issue #19 / #20 / #21（真实 `/generate` 代理、多模态输入能力、
+生成模板持久化），见 [`docs/02-路线图与任务看板.md`](docs/02-路线图与任务看板.md)。
+
+校验基线：`npm test` **267 项**、`npm run api:smoke` **30 项**、`npm run api:browser` **31 项**、
+`npm run check:anon` PASS（`npm run check` = test + api:smoke + check:anon；api:browser 单独跑）。
 
 ---
 
@@ -20,19 +33,21 @@
 需要校验时（Node ≥ 18，**不需要 `npm install`**）：
 
 ```bash
-npm test            # 语法 / 脚本路径 / DOM 引用 / 数值稳定性 / DSL / 表达式安全 / 契约样例
+npm test            # 语法 / 脚本路径 / DOM 引用 / 数值稳定性 / DSL / 表达式安全 / 契约样例 / 四视图验收
+npm run api:smoke   # 真实本机 HTTP + 数据层同步回归（30 项）
+npm run api:browser # 真实浏览器 UI 冒烟（需本机 Edge / Chrome，31 项，不进 CI）
 npm run check:anon  # 匿名合规扫描
-npm run check       # 两个都跑
+npm run check       # test + api:smoke + check:anon 一起跑
 ```
 
 ## 四人分工
 
 | 成员 | 职责 | 主要负责 | 起点任务 |
 |---|---|---|---|
-| 付 | 产品统筹 + 前端 / 可视化 | `src/ui/`、`src/viz/`、`assets/`、`index.html`、`docs/` | #I2 / #I3 / #I14 视图精修 |
-| 姜 | 算法 / ML：概念建模、AI 生成、多模态识别 | `src/model/` | #I4 接 LLM 生成模板 |
+| 付 | 产品统筹 + 前端 / 可视化 | `src/ui/`、`src/viz/`、`assets/`、`index.html`、`docs/` | #I2 / #I3 / #I14 / #I15 代码已完成，待网页关闭 |
+| 姜 | 算法 / ML：概念建模、AI 生成、多模态识别 | `src/model/` | #I4 / #I5 / #I6 已完成，下一步偿还 AI 代理链路与输入能力 |
 | 曹 | 游戏 / 模拟引擎：沙盒运行骨架 | `src/core/` | #I7 / #I8 已完成，下一步 #I9 模拟骨架 |
-| 秦 | 后端 / 多设备 / 工程 / 文档 | `services/api/`、`src/learning/data.js` | #I10 REST 适配器 |
+| 秦 | 后端 / 多设备 / 工程 / 文档 | `services/api/`、`src/learning/data.js` | #I10 / #I11 / #I12 已完成，配合 #I15 与可选后端部署 |
 
 > 表内单字为姓氏，仅作分工标识；对外材料不出现成员全名。
 
@@ -41,21 +56,21 @@ npm run check       # 两个都跑
 ## 架构与目录
 
 ```
-输入层   文字/截图/板书/语音 → 概念        src/model/generator.js（待接）
-建模层   概念 → TemplateSpec              contracts/template.schema.json
+输入层   文字 / 文件名 / 图片内文字 → 概念   src/model/generator.js（已接，本机处理）
+建模层   概念 → TemplateSpec              contracts/template.schema.json + TTK.dsl.prompt/draft
 生成层   TemplateSpec → 可运行沙盒         src/model/dsl.js → src/core/engine.js
 表现层   ComputeResult → Canvas / 指标卡   src/viz/ + src/ui/
-闭环层   轨迹 → 掌握度 → 推荐下一个概念    src/learning/ + services/api/
+闭环层   轨迹 → 掌握度 → 推荐下一个概念    src/learning/ + services/api/（可选同步服务）
 ```
 
 | 目录 | 内容 |
 |---|---|
 | `contracts/` | 共享契约与可执行样例（**唯一汇合点**） |
 | `src/core/` | 状态引擎、数学工具、安全表达式求值 |
-| `src/model/` | 精修模板库、DSL 编译器、AI 生成占位 |
+| `src/model/` | 10 个精修模板、DSL 编译器、概念识别与模板生成（代理可选） |
 | `src/viz/` | 声明式 Canvas 渲染器 |
 | `src/learning/` | 数据适配器、概念图谱与学习诊断 |
-| `src/ui/` | 页面装配、四视图路由与最小可用视图 |
+| `src/ui/` | 页面装配、四视图路由与精修视图、同步产品入口 |
 | `services/api/` | 后端接口定义与实现目录 |
 | `docs/` | 分工、接口契约、任务看板、环境、合规、ADR |
 | `tools/` | 本地与 CI 校验脚本 |
@@ -63,12 +78,27 @@ npm run check       # 两个都跑
 
 接口细节见 [`docs/01-接口契约.md`](docs/01-接口契约.md)，上手见 [`docs/03-开发环境.md`](docs/03-开发环境.md)。
 
+## 部署与数据：本地优先
+
+- **静态站**：GitHub Pages 由仓库 Settings 配 `main / root` 发布，只托管 `index.html`、CSS 与脚本；
+  **不运行 `services/api/server.js`，也不保存任何学习数据**。push 到 `main` 后自动更新，没有到期日。
+- **数据在哪**：默认纯本地模式，轨迹 / 挑战 / 卡点 / 自定义模板写在**当前设备、当前浏览器 origin 的
+  localStorage**（键名见 `docs/01` 第 5 节）。PC 与手机、以及 `file://` 与 Pages 站点之间，
+  记录彼此独立、互不干涉。
+- **怎么交接**：`TTK.data.exportAll(engine)` 导出匿名 JSON，`TTK.data.importAll(文本)` 在另一台设备导入；
+  这是当前推荐的备份 / 迁移方式，导出内容符合 `learning-trace.schema.json`。
+- **可选同步**：只有需要多设备自动合并时，才运行 `npm run api`（本机 Node 服务，默认 `127.0.0.1:8787/v1`）
+  或另行把该服务部署到公网，再用 `TTK.data.remote.configure(url)` 接入。界面入口在学习记录抽屉的
+  「跨设备同步（可选）」：可填服务地址、查看 / 输入 16 位匿名 ID、看待上传数与最近错误、立即同步或恢复本地模式；
+  页面底部措辞会随模式切换，**未配置时零网络请求**。公网后端是可选增强，当前不部署不影响演示与本地评测。
+
 ## 协作规则
 
 **不设审批门禁**：可以直接 push `main`，也可以开分支提 PR、互相合并，按方便来；不需要 approve，也没有指定合并人。
 
 - 建议认领 `docs/02` 的任务再动手，改完跑一次 `npm run check`（全量校验 + 匿名扫描），避免互相覆盖。
 - `contracts/` 是全员共管的汇合点，改字段前先和受影响的人对清楚，并同步四处（schema / examples / dsl.js / `docs/01`）。
+- 目录 owner 见 `docs/00`；需要顺手改到别人目录（尤其 `index.html` / `src/ui/` / `assets/`）时先打声招呼，改完在提交说明里列出受影响文件。
 - CI 在 push 与 PR 时自动跑 `npm test` + 匿名扫描，红了及时修。
 - commit 用 `类型(范围): 一句话`。其余见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
 

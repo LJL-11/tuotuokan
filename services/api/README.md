@@ -16,7 +16,7 @@ npm run api:browser
 
 服务默认监听 `http://127.0.0.1:8787/v1`。`npm run api:smoke` 可以单独运行 I10 验收，使用随机端口和 `.local/ttk-api-*` 临时库，结束后校验路径并清理，不碰真实学习数据。
 
-`npm run api:browser` 是**真实浏览器验收**：自动发现本机 Edge / Chrome，用 CDP 起 headless 实例打开 `file://` 页面，验证拖参数上报、断网刷新补发与跨浏览器读回（22 项）。找不到浏览器时以退出码 2 跳过，不进 CI（CI 是 Linux 无头环境，装浏览器成本不值）。
+`npm run api:browser` 是**真实浏览器验收**：自动发现本机 Edge / Chrome，用 CDP 起 headless 实例打开 `file://` 页面，验证拖参数上报、断网刷新补发、跨浏览器读回，以及 #I2 / #I3 / #I14 / #I15 的 UI 冒烟（当前 31 项）。找不到浏览器时以退出码 2 跳过，不进 CI（CI 是 Linux 无头环境，装浏览器成本不值）。
 
 服务数据保存在 `services/api/.data/db.json`，已被 Git 忽略。可用环境变量指定目录、地址和端口：
 
@@ -95,4 +95,10 @@ TTK.data.remote.configure('');
 
 `npm run check` 包含原有验证、I10 API / 数据层验收和匿名扫描；CI 同样运行三者。新增用例覆盖断网刷新恢复、HTTP 错误保留、发送途中继续写入、身份 / 地址切换、重启持久化、磁盘失败和完整导入导出。
 
-I11 尚需产品入口、匿名身份管理交互与跨设备体验验收；I12 的线上部署未执行。`/generate` 代理等待与姜对齐请求 / 响应，不在本次 I10 中新增，不把模型密钥放进前端。
+I11 数据侧与 I12 静态部署均已完成（网页 #14 / #8 已关闭）：GitHub Pages 由仓库 Settings 配 `main / root` 发布，
+地址 <https://ljl-11.github.io/tuotuokan/>，push 后自动更新；CI 在 push / PR 时全绿。
+**Pages 只托管静态文件，不运行 `server.js`**，跨设备同步仍需本机 `npm run api` 或另行部署该服务；
+产品入口、界面同步状态与匿名身份交互归 #I15（付），不属 I10 / I11 验收范围。
+
+`/generate` 代理仍待与姜对齐请求 / 响应，属网页偿还 Issue #19（旧代号 R1），不在 I10 中新增：**模型密钥只放服务端，前端不携带**；
+代理落地前 `TTK.generator` 未配置 endpoint，默认返回 `ai:false` 的本地草稿。

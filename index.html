@@ -101,7 +101,7 @@
           <button id="stuckBtn" class="stuck-btn">
             <span>我卡住了，给我推一个前置概念</span><span class="arrow">→</span>
           </button>
-          <div class="panel-foot">记录仅保存在本机浏览器，不上传</div>
+          <div id="storageNotice" class="panel-foot">记录默认仅保存在本机浏览器；启用同步后按匿名 ID 上传</div>
         </aside>
       </div>
 
@@ -127,11 +127,29 @@
     <h3>最近轨迹</h3>
     <div id="timeline" class="timeline"></div>
     <button id="clearLog" class="btn danger">清空本机记录</button>
+
+    <div class="sync-box">
+      <h3>跨设备同步（可选）</h3>
+      <p id="syncHint" class="sync-hint">默认纯本地：记录只保存在这台设备的这个浏览器里，不上传。启用后填服务地址，用同一匿名 ID 可在别的设备接续。</p>
+      <label class="sync-label" for="syncUrl">服务地址</label>
+      <input id="syncUrl" class="sync-input" type="url" autocomplete="off" placeholder="http://127.0.0.1:8787/v1">
+      <div class="sync-actions">
+        <button id="syncSave" class="btn tiny primary">保存并启用</button>
+        <button id="syncClear" class="btn tiny">恢复本地模式</button>
+        <button id="syncFlush" class="btn tiny">立即同步</button>
+      </div>
+      <label class="sync-label" for="syncAnon">匿名 ID（16 位十六进制）</label>
+      <div class="sync-actions">
+        <input id="syncAnon" class="sync-input" type="text" autocomplete="off" maxlength="16" placeholder="未启用时本机不生成">
+        <button id="syncAnonApply" class="btn tiny">应用身份</button>
+      </div>
+      <div id="syncStatus" class="sync-status" role="status"></div>
+    </div>
   </aside>
 
   <!-- 传统 script 标签：双击 index.html 即可运行，file:// 下无 CORS 问题。
        顺序 = 依赖顺序，新增模块请按分层追加；各目录 owner 见 README / CODEOWNERS。
-       四视图已由 #I1 接入；报告 / 工坊 / 图谱的精修分别见 #I2 / #I3 / #I14。 -->
+       四视图由 #I1 接入；报告 / 工坊 / 图谱精修见 #I2 / #I3 / #I14，同步入口见 #I15。 -->
   <script src="src/core/engine.js"></script>      <!-- 曹：状态与数学工具 -->
   <script src="src/core/expr.js"></script>        <!-- 曹：安全表达式求值 -->
   <script src="src/model/dsl.js"></script>        <!-- 姜：模板 DSL 编译 -->

@@ -44,7 +44,7 @@ docs(contracts): 补充 prerequisites 的图谱语义
 
 - [ ] `npm test` 通过（语法、脚本路径、DOM 引用、模板数值、DSL、表达式安全、契约样例）
 - [ ] `npm run check:anon` 通过
-- [ ] **双击 `index.html`** 真的能跑，且原有 6 个沙盒未被破坏
+- [ ] **双击 `index.html`** 真的能跑，且 10 个精修沙盒与四视图未被破坏
 - [ ] 没有把 `Math.random()` 写进模板（要用 `TTK.math.rng(seed)`）
 - [ ] 没有在模板里操作 DOM / Canvas / localStorage / 网络
 - [ ] 没有在前端写密钥、账号、校名
