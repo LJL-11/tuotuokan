@@ -187,6 +187,18 @@ var sv = TTK.dsl.validate(spring, TTK.templates.map(function (t) { return t.id; 
 ok('契约样例 spring.json 可编译注册', sv.ok, (sv.errors || []).join('; '));
 var mountRes = TTK.generator.mount(engine, TTK.generator.generate('测试概念').spec);
 ok('generator 降级草稿可安全挂载', mountRes.ok, (mountRes.errors || []).join('; '));
+var draftJson = '';
+try { draftJson = JSON.stringify(mountRes.spec); } catch (e) { draftJson = ''; }
+ok('本地草稿可序列化且不落盘', mountRes.persist === false && mountRes.spec && mountRes.spec.source === 'local-draft'
+  && draftJson.indexOf('local-draft') >= 0 && typeof mountRes.spec.compute !== 'function', draftJson.slice(0, 120));
+var llmSpec = resonanceSpec();
+llmSpec.source = 'llm';
+var llmMount = TTK.generator.mount(TTK.createEngine(), llmSpec);
+var llmJson = '';
+try { llmJson = JSON.stringify(llmMount.spec); } catch (e2) { llmJson = ''; }
+ok('校验通过的模型模板可落盘且不含函数', llmMount.ok && llmMount.persist === true
+  && llmMount.spec && llmMount.spec.source === 'llm' && llmJson.indexOf('function') < 0,
+  (llmMount.errors || []).join('; '));
 ok('generator 明确标注非 AI 生成', TTK.generator.generate('x').ai === false, '');
 
 console.log('=== 8. 表达式白名单（安全边界） ===');
@@ -580,9 +592,10 @@ function runI4(done) {
     var known = TTK.generator.recognize('过拟合');
     var damp = TTK.generator.recognize('阻尼');
     var longTail = TTK.generator.recognize('阻尼共振');
-    ok('已收录概念仍能识别', known.ok && known.conceptId === 'overfit' && damp.ok && damp.conceptId === 'oscillation',
-      JSON.stringify({ known: known.conceptId, damp: damp.conceptId }));
-    ok('阻尼共振不被短关键词吞掉', longTail.ok === false && longTail.message, longTail.message || '');
+    ok('已收录概念仍能识别', known.ok && known.conceptId === 'overfit' && known.level === 'supported'
+      && damp.ok && damp.conceptId === 'oscillation' && damp.level === 'supported',
+      JSON.stringify({ known: known.conceptId, damp: damp.conceptId, level: known.level }));
+    ok('阻尼共振不被短关键词吞掉', longTail.ok === false && longTail.level === 'supported' && longTail.message && !longTail.conceptId, longTail.message || '');
 
     var mediaCalls = 0;
     TTK.generator.configure({
@@ -591,7 +604,7 @@ function runI4(done) {
     });
     var named = TTK.generator.recognize({ image: { name: '贝叶斯.png' } });
     var missed = TTK.generator.recognize({ text: '完全未知xyz', image: { name: 'unknown-diagram.png' } });
-    ok('图片文件名可在本机匹配且不上传', named.ok && named.conceptId === 'bayes'
+    ok('图片文件名可在本机匹配且不上传', named.ok && named.conceptId === 'bayes' && named.level === 'fallback'
       && named.message.indexOf('没有上传') >= 0 && mediaCalls === 0, named.message || '');
     ok('认不出的图片给出明确提示且不上传', missed.ok === false && missed.unsupported === true
       && missed.message && mediaCalls === 0, missed.message || '');
@@ -607,7 +620,8 @@ function runI4(done) {
       image: { name: '截图.svg', body: '<svg xmlns="http://www.w3.org/2000/svg"><text>过拟合</text></svg>' }
     });
     ok('图片里的文字能产出概念且不上传', svgShot.ok && svgShot.conceptId === 'overfit'
-      && svgShot.source === 'image-text' && svgShot.message.indexOf('没有上传') >= 0 && mediaCalls === 0,
+      && svgShot.source === 'image-text' && svgShot.level === 'fallback'
+      && svgShot.message.indexOf('没有上传') >= 0 && mediaCalls === 0,
       svgShot.message || '');
     var paragraph = TTK.generator.recognize({
       image: { name: '板书.png', text: '课本这一段在讲贝叶斯更新，先验会被新证据挪动。' }
@@ -625,8 +639,12 @@ function runI4(done) {
     ok('图片文件里的文字能产出概念且不上传', fromPng.ok && fromPng.conceptId === 'decay' && mediaCalls === 0,
       fromPng.message || '');
     var quiet = TTK.generator.recognize({ audio: { name: 'lecture.wav' } });
-    ok('听不懂的语音给出明确提示且不上传', quiet.ok === false && !quiet.conceptId && quiet.unsupported === true
-      && quiet.message.indexOf('没有上传') >= 0 && mediaCalls === 0, quiet.message || '');
+    ok('听不懂的语音给出明确提示且不上传', quiet.ok === false && !quiet.conceptId && !quiet.concept
+      && quiet.level === 'unsupported' && quiet.unsupported === true
+      && quiet.message.indexOf('没有上传') >= 0 && quiet.message.indexOf('文件名') >= 0 && mediaCalls === 0, quiet.message || '');
+    var blankShot = TTK.generator.recognize({ image: { name: '截图.png' } });
+    ok('完全认不出不编造概念且不上传', blankShot.ok === false && blankShot.level === 'unsupported'
+      && !blankShot.conceptId && !blankShot.concept && blankShot.message && mediaCalls === 0, blankShot.concept || blankShot.message || '');
     ok('选择图片前界面已说明不会上传', /id="askPrivacy"/.test(html) && /不会上传/.test(html)
       && html.indexOf('id="askPrivacy"') < html.indexOf('id="mediaBtn"'), '');
 
