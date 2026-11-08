@@ -388,6 +388,12 @@ button { cursor: pointer; }
 }
 .studio-saved > span { flex: 1 1 160px; }
 .studio-saved small { color: var(--muted); font-size: 10px; margin-left: 6px; }
+/* #19 / #21：模型生成的模板在工坊列表里单独标出，和本地草稿可区分 */
+.studio-badge {
+  display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 5px;
+  background: #eef2ff; color: var(--indigo); font-size: 10px; font-weight: 700;
+}
+.studio-note { color: var(--muted); font-size: 10.5px; }
 
 /* ---------- #I14 图谱图例 ---------- */
 .graph-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; font-size: 10.5px; color: var(--muted); }

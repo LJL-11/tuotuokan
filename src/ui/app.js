@@ -61,6 +61,85 @@
     return loaded;
   }
 
+  /* ---------------- #19 / #21：生成代理配置与生成模板落盘 ----------------
+   * 配置的读写放在 src/ui/settings.js，仍统一走 TTK.data 的适配器（silent 模式），
+   * 不进学习轨迹、不进同步队列、不进导出 JSON；app.js 不自带存储实现。
+   */
+  function builtinIds() {
+    var ids = {};
+    TTK.templates.forEach(function (t) { ids[t.id] = true; });
+    return ids;
+  }
+  function readGenConfig() {
+    return TTK.settings ? TTK.settings.readGenConfig() : { endpoint: '', model: '' };
+  }
+  function applyGenConfig(cfg) {
+    try { return TTK.generator.configure({ endpoint: cfg.endpoint, model: cfg.model }); }
+    catch (e) { return { enabled: false, endpoint: '', model: '' }; }
+  }
+  /** 刷新后把上次的代理配置重新灌进 generator；未配置过就保持零网络请求的本地模式。 */
+  function restoreGeneratorConfig() {
+    var cfg = readGenConfig();
+    applyGenConfig(cfg);
+    return cfg;
+  }
+  function saveGenConfig(cfg) {
+    var clean = TTK.settings ? TTK.settings.saveGenConfig(cfg) : cfg;
+    return applyGenConfig(clean);
+  }
+  function renderGenStatus() {
+    var el = $('genStatus');
+    if (!el) return;
+    var c = TTK.generator.config();
+    el.textContent = [
+      '模式：' + (c.enabled ? '已配置生成代理' : '本地草稿（不联网）'),
+      '服务地址：' + (c.endpoint || '未配置'),
+      '模型：' + (c.model || '由服务端决定'),
+      '密钥：只放服务端，前端不携带'
+    ].join('\n');
+  }
+  function initGeneratorPanel() {
+    var ep = $('genEndpoint'), mo = $('genModel');
+    var cfg = restoreGeneratorConfig();
+    if (ep) ep.value = cfg.endpoint;
+    if (mo) mo.value = cfg.model;
+    var save = $('genSave');
+    if (save) save.addEventListener('click', function () {
+      var endpoint = String((ep && ep.value) || '').trim();
+      var model = String((mo && mo.value) || '').trim();
+      if (endpoint && !/^https?:\/\//i.test(endpoint)) {
+        renderGenStatus(); toast('服务地址需以 http:// 或 https:// 开头'); return;
+      }
+      if (/[?&](api[_-]?key|token|secret)=/i.test(endpoint)) {
+        renderGenStatus(); toast('不要把密钥写进地址，密钥只放服务端'); return;
+      }
+      var next = saveGenConfig({ endpoint: endpoint, model: model });
+      renderGenStatus();
+      toast(next.enabled ? '生成代理已启用' : '已恢复本地草稿模式', 'ok');
+    });
+    var clear = $('genClear');
+    if (clear) clear.addEventListener('click', function () {
+      if (ep) ep.value = '';
+      if (mo) mo.value = '';
+      saveGenConfig({ endpoint: '', model: '' });
+      renderGenStatus();
+      toast('已恢复本地草稿模式', 'ok');
+    });
+    renderGenStatus();
+  }
+
+  /** #21：只持久化 mount().persist === true 的模型模板；本地草稿不落盘。
+   *  与 #I3 工坊共用 ttk.custom.v1 与 restoreCustomTemplates()，不做第二套格式。 */
+  function saveGeneratedTemplate(spec) {
+    if (!spec || !spec.id || builtinIds()[spec.id]) return false; // 不覆盖 10 个精修模板
+    var clean;
+    try { clean = JSON.parse(JSON.stringify(spec)); } catch (e) { return false; }
+    var list = (data.custom() || []).filter(function (s) { return s && s.id !== clean.id; });
+    list.push(clean);
+    data.saveCustom(list);
+    return true;
+  }
+
   /* ---------------- #I15：同步产品入口 ---------------- */
   var syncResult = '', renderingSync = false;
   function currentAnonId() {
@@ -158,7 +237,13 @@
     if (TTK.views && TTK.views.refresh) TTK.views.refresh();
   });
 
-  TTK.app = { restoreCustom: restoreCustomTemplates, renderSyncStatus: renderSyncStatus };
+  TTK.app = {
+    restoreCustom: restoreCustomTemplates,
+    renderSyncStatus: renderSyncStatus,
+    restoreGeneratorConfig: restoreGeneratorConfig,
+    generatorConfig: readGenConfig,
+    saveGenerated: saveGeneratedTemplate
+  };
 
   /* ---------------- 侧栏：概念库 ---------------- */
   function buildSidebar() {
@@ -434,7 +519,7 @@
     var name = file.name || '未命名';
     if (kind === 'audio') {
       pendingMedia = { audio: { name: name } };
-      $('askHint').textContent = '已在本机选中语音「' + name + '」。不会上传。';
+      $('askHint').textContent = '已选中语音「' + name + '」。语音只认文件名，请改用文字，或把概念写进文件名。内容不会上传。';
       return;
     }
     readBlob(file, kind === 'text').then(function (payload) {
@@ -456,7 +541,7 @@
     var typed = $('conceptInput').value.trim();
     var media = pendingMedia;
     if (!typed && !media) {
-      $('askHint').textContent = '先输入想弄懂的概念，或选择图片 / 语音。内容只在本机处理。';
+      $('askHint').textContent = '先输入想弄懂的概念，或选图片 / 语音（只认文字与文件名）。内容只在本机处理。';
       return;
     }
     if (asking) return;
@@ -473,7 +558,9 @@
       return;
     }
     if (recognized.unsupported || !recognized.concept) {
-      $('askHint').textContent = recognized.message || '没有认出这个输入。';
+      // #20 冻结口径：认不出时把「只认文件名」与替代操作直接说清楚，不暗示具备语音转写能力。
+      $('askHint').textContent = recognized.message ||
+        '没有认出这个输入。语音只认文件名，请改用文字，或把概念写进文件名。';
       toast('没有认出');
       return;
     }
@@ -509,14 +596,19 @@
       toast('生成失败');
       return;
     }
+    // #21：模型模板（mount().persist === true）落到 ttk.custom.v1，刷新后由 restoreCustom() 挂回；
+    // 本地草稿 persist === false，不落盘，文案继续如实写「刷新不保留」。
+    var saved = mounted.persist === true && saveGeneratedTemplate(mounted.spec);
     buildSidebar();
     TTK.views.go('sandbox', mounted.tpl.id);
     if (result.ai === true) {
-      $('askHint').textContent = '这份沙盒来自模型输出，并已通过公式白名单校验。刷新页面后不会保留。';
-      toast('已生成「' + mounted.tpl.name + '」', 'ok');
+      $('askHint').textContent = '【模型生成 · AI】这份沙盒来自模型输出，已通过公式白名单校验。' +
+        (saved ? '已保存到本机，刷新后仍在；可在「学习报告」导出 JSON 备份。'
+               : '未保存到本机（编号与内置概念冲突），刷新后不会保留。');
+      toast('已生成「' + mounted.tpl.name + '」（模型生成）', 'ok');
       return;
     }
-    $('askHint').textContent = draftHint(q, result);
+    $('askHint').textContent = '【本地草稿 · 不是 AI 生成】' + draftHint(q, result);
     toast('已挂上本地草稿，不是 AI 生成');
   }
 
@@ -562,7 +654,8 @@
   }
 
   function init() {
-    restoreCustomTemplates(); // 刷新后把工坊保存的模板重新挂进引擎
+    restoreGeneratorConfig();  // #19：刷新后恢复生成代理配置（未配置过保持本地模式）
+    restoreCustomTemplates();  // #I3 / #21：把工坊与模型生成的自定义模板重新挂进引擎
     buildSidebar();
     bindSimControls();
     updateBadge();
@@ -624,6 +717,7 @@
     });
 
     initSyncPanel();
+    initGeneratorPanel();
     data.subscribe(onDataChange);
     var initial = TTK.views.start(); // 解析 hash，决定刷新后停在哪个视图
     select(engine.get(initial.tpl) ? initial.tpl : engine.all()[0].id);

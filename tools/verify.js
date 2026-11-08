@@ -664,7 +664,7 @@ var last13 = D.trail()[D.trail().length - 1];
 ok('四视图切换后拖动 / 指标 / 轨迹仍正常', !!paramOk13 && last13.reason === 'param'
   && TTK.engine.state.spec.metrics.length > 0, JSON.stringify(last13).slice(0, 160));
 
-runI4(function () { runLeadViews(); finish(); });
+runI4(function () { runLeadViews(); runLeadRepay(); finish(); });
 
 function pngWithText(text) {
   function utf8(value) {
@@ -1040,6 +1040,143 @@ function runLeadViews() {
     fetchCalls === 0, 'calls=' + fetchCalls);
 
   global.fetch = prevFetch;
+}
+
+/* === 16. 偿还 #19 / #20 / #21 中付的部分（前端目录内） ===
+ * 只验付的责任：生成代理配置入口、能力降级口径、生成模板持久化与共用导出入口。
+ * 服务端 POST /generate 与模型端到端联调属秦 / 姜，不在这里越界断言。 */
+function runLeadRepay() {
+  console.log('=== 16. 偿还 #19 代理配置 / #20 能力口径 / #21 生成模板持久化 ===');
+  var html16 = read('index.html');
+  var app16 = read('src/ui/app.js');
+  var views16 = read('src/ui/views.js');
+  var settings16 = read('src/ui/settings.js');
+  var readme16 = read('README.md');
+  var doc1 = read('docs/01-接口契约.md');
+  var doc2 = read('docs/02-路线图与任务看板.md');
+  var doc4 = read('docs/04-参赛合规.md');
+  var prevFetch16 = global.fetch, fetchCalls16 = 0;
+  global.fetch = function () { fetchCalls16++; return Promise.reject(new Error('offline')); };
+
+  /* --- #19：endpoint / model 配置入口，刷新保留，清空回本地，零请求 --- */
+  ok('#19 界面含服务地址 / 模型 / 状态控件',
+    ['genEndpoint', 'genModel', 'genSave', 'genClear', 'genStatus'].every(function (id) {
+      return html16.indexOf('id="' + id + '"') >= 0;
+    }), '');
+  ok('#19 界面不收密钥、前端不带 Authorization',
+    !/id="[^"]*(apiKey|token|secret)[^"]*"/i.test(html16) &&
+    app16.indexOf('Authorization') < 0 && settings16.indexOf('Authorization') < 0 &&
+    !/apiKey|token|secret/.test(settings16), '');
+  ok('#19 本机设置只存 endpoint / model 且统一走数据层适配器',
+    settings16.indexOf('TTK.data') >= 0 &&
+    settings16.indexOf('data.write(GEN_KEY, clean, true)') >= 0 &&
+    /endpoint: String/.test(settings16) && /model: String/.test(settings16), '');
+  ok('#19 默认本地草稿模式且未配置代理',
+    TTK.generator.config().enabled === false && TTK.settings.readGenConfig().endpoint === '',
+    JSON.stringify(TTK.generator.config()));
+
+  var genUrl16 = 'http://127.0.0.1:8787/generate';
+  els['genEndpoint'].value = genUrl16;
+  els['genModel'].value = 'mock-model';
+  els['genSave'].handlers.click[0]();
+  ok('#19 配置生效并写入本机（刷新后可恢复）',
+    TTK.generator.config().enabled === true && TTK.generator.config().model === 'mock-model' &&
+    !!D.read(TTK.settings.key, null) && D.read(TTK.settings.key, null).endpoint === genUrl16,
+    JSON.stringify(TTK.generator.config()));
+  ok('#19 状态区显示服务地址 / 模型 / 密钥口径',
+    ['服务地址：', '模型：', '密钥：只放服务端'].every(function (k) {
+      return String(els['genStatus'].textContent).indexOf(k) >= 0;
+    }), String(els['genStatus'].textContent));
+  var traceText16 = D.exportAll(TTK.engine);
+  ok('#19 代理配置不进匿名导出 JSON',
+    traceText16.indexOf(genUrl16) < 0 && traceText16.indexOf('mock-model') < 0, '');
+
+  // 模拟刷新：清空内存里的 generator 配置，重新载入设置模块并走 app 的恢复入口
+  TTK.generator.configure({ endpoint: '', model: '' });
+  delete require.cache[require.resolve(path.join(ROOT, 'src/ui/settings.js'))];
+  require(path.join(ROOT, 'src/ui/settings.js'));
+  var restoredCfg16 = TTK.app.restoreGeneratorConfig();
+  ok('#19 刷新后配置仍在并自动生效',
+    restoredCfg16.endpoint === genUrl16 && TTK.generator.config().enabled === true,
+    JSON.stringify(restoredCfg16));
+
+  els['genClear'].handlers.click[0]();
+  ok('#19 清空回到本地草稿模式且全程零网络请求',
+    TTK.generator.config().enabled === false &&
+    !!D.read(TTK.settings.key, null) && D.read(TTK.settings.key, null).endpoint === '' &&
+    fetchCalls16 === 0, 'calls=' + fetchCalls16);
+  var draft16 = TTK.generator.generate('未收录概念');
+  ok('#19 未配置时代理不会被调用（同步返回本地草稿）',
+    !!draft16 && typeof draft16.then !== 'function' && draft16.ai === false && fetchCalls16 === 0, '');
+  els['genEndpoint'].value = 'not-a-url';
+  els['genSave'].handlers.click[0]();
+  ok('#19 非法服务地址被拒绝', TTK.generator.config().enabled === false, '');
+  els['genEndpoint'].value = 'http://x/generate?api_key=abc';
+  els['genSave'].handlers.click[0]();
+  ok('#19 地址里夹带密钥被拒绝', TTK.generator.config().enabled === false, '');
+
+  /* --- #20：冻结方案，界面与四份文档口径统一 --- */
+  ok('#20 界面明确能力边界与替代操作',
+    ['文字 / 文件名 / 图片内嵌文字', '语音只认文件名', '请改用文字，或把概念写进文件名', '不会上传']
+      .every(function (s) { return html16.indexOf(s) >= 0; }) &&
+    html16.indexOf('看懂截图') < 0 && html16.indexOf('听懂语音') < 0, '');
+  ok('#20 app.js 语音提示与失败提示不夸大能力',
+    app16.indexOf('语音只认文件名') >= 0 &&
+    app16.indexOf('请改用文字，或把概念写进文件名') >= 0, '');
+  ok('#20 README / docs/01 / docs/02 / docs/04 口径一致',
+    [readme16, doc1, doc2, doc4].every(function (t) {
+      return t.indexOf('文字 / 文件名 / 图片内嵌文字') >= 0 &&
+        t.indexOf('语音只认文件名') >= 0 &&
+        t.indexOf('看懂截图') < 0 && t.indexOf('听懂语音') < 0;
+    }), '');
+
+  /* --- #21：模型模板落盘、不覆盖内置、刷新恢复、导出导入共用入口 --- */
+  var probe16 = JSON.parse(read('contracts/examples/spring.json'));
+  probe16.id = 'repay_llm_probe';
+  probe16.name = '代理生成探针';
+  probe16.source = 'llm';
+  var saved16 = TTK.app.saveGenerated(probe16);
+  ok('#21 模型模板落盘到 ttk.custom.v1 且不含函数',
+    saved16 === true && D.custom().some(function (s) {
+      return s && s.id === 'repay_llm_probe' && s.source === 'llm';
+    }) && JSON.stringify(D.custom()).indexOf('"function"') < 0, '');
+  var builtin16 = TTK.templates[0];
+  ok('#21 重复 id 不覆盖 10 个内置精修模板',
+    TTK.app.saveGenerated(Object.assign({}, probe16, { id: builtin16.id })) === false &&
+    !D.custom().some(function (s) { return s && s.id === builtin16.id; }), '');
+  if (TTK.engine.get('repay_llm_probe')) TTK.engine.unregister('repay_llm_probe');
+  TTK.app.restoreCustom();
+  ok('#21 刷新后模型模板自动挂回引擎',
+    !!TTK.engine.get('repay_llm_probe') && TTK.engine.get('repay_llm_probe').custom === true, '');
+  var exported16 = JSON.parse(D.exportAll(TTK.engine));
+  ok('#21 自定义模板随 exportAll 导出且符合 trace v1',
+    exported16.schema === 'ttk.learning-trace.v1' && Array.isArray(exported16.customTemplates) &&
+    exported16.customTemplates.some(function (s) { return s.id === 'repay_llm_probe'; }), '');
+  TTK.engine.unregister('repay_llm_probe');
+  D.saveCustom([]);
+  var importTrace16 = JSON.stringify({
+    schema: 'ttk.learning-trace.v1', events: [], progress: {}, stuck: [],
+    customTemplates: [probe16]
+  });
+  var imported16 = TTK.views.importReport(importTrace16);
+  ok('#21 导入 JSON 后模板立即恢复，不必手动刷新',
+    imported16 === true && !!TTK.engine.get('repay_llm_probe'), '');
+  var draftSpec16 = Object.assign({}, probe16, { id: 'repay_draft_probe', source: 'local-draft' });
+  var draftMount16 = TTK.generator.mount(TTK.createEngine(), draftSpec16);
+  ok('#21 本地草稿 persist === false，不落盘',
+    draftMount16.ok === true && draftMount16.persist === false, '');
+  ok('#21 页面文案与实际行为一致',
+    app16.indexOf('mounted.persist === true') >= 0 &&
+    app16.indexOf('已保存到本机，刷新后仍在') >= 0 &&
+    app16.indexOf('刷新页面后不会保留') >= 0, '');
+  ok('#21 工坊与报告共用 exportAll / importAll 同一入口',
+    ['studioExport', 'studioImport', 'studioImportFile'].every(function (id) {
+      return views16.indexOf("'" + id + "'") >= 0;
+    }) && views16.indexOf("['studioExport', exportReport]") >= 0, '');
+  ok('#19/#21 文档不再把生成链路写成「只在内存 / 骨架」',
+    doc1.indexOf('生成模板只在内存里') < 0 && doc2.indexOf('生成的模板只在内存里') < 0, '');
+
+  global.fetch = prevFetch16;
 }
 
 function finish() {

@@ -11,7 +11,8 @@
 ## 四层数据流
 
 ```
-输入层  概念文本/截图/板书 ──(姜: recognize)──> conceptId | 概念描述
+输入层  文字 / 文件名 / 图片内嵌文字 ──(姜: recognize)──> conceptId | 概念描述
+        （语音只认文件名，请改用文字，或把概念写进文件名；字节不上传）
 建模层  概念描述 ──(姜: generate)──> TemplateSpec JSON  ← contracts/template.schema.json
 编译层  TemplateSpec ──(曹: TTK.dsl.validate/compile)──> RuntimeTemplate
 运行层  RuntimeTemplate.compute(p, M) ──> ComputeResult  ← contracts/compute-result.schema.json

@@ -8,20 +8,25 @@
 双击 `index.html` 即可运行，内置 **10 个跨学科精修概念**；线上地址
 <https://ljl-11.github.io/tuotuokan/>（GitHub Pages，仅托管静态文件）。
 
-网页 Issue 已关闭的交付：#I13 数据层统一、#I1 四视图路由（hash `#<view>/<tplId>`，刷新保持）、
+网页 **14 条 Issue 已关闭**：#I13 数据层统一、#I1 四视图路由（hash `#<view>/<tplId>`，刷新保持）、
 #I7 / #I8 引擎插件化与表达式安全加固（PR #16）、#I10 REST 适配器、#I11 匿名账号与跨设备同步数据侧、
 #I12 CI 与 Pages 部署、#I4 模板生成（输出校验 / 失败重试 / 本地降级）、#I5 多模态概念识别、
-#I6 模板库扩充与先修关系补全。
+#I6 模板库扩充与先修关系补全；11-08 又关闭 #I2 学习报告（聚合卡片 / 掌握度 / 时间线 / 各概念柱状图 /
+匿名导出导入）、#I3 模板工坊（校验报错定位 → expr 白名单编译 → 挂载拖动 → 刷新保留）、
+#I14 概念图谱（先修边 / 掌握度配色 / 节点数随注册卸载变化 / 点击跳沙盒）、
+#I15 同步产品入口（服务地址 / 匿名 ID / 待上传数 / 最近错误 / 即时重绘 / 数据诚实文案），
+四条验收框均已全勾并附验收 comment。
 
-付名下 4 条已按 Issue 验收框实现并自验，**待网页勾选关闭**：#I2 学习报告（聚合卡片 / 掌握度 /
-时间线 / 各概念柱状图 / 匿名导出导入）、#I3 模板工坊（校验报错定位 → expr 白名单编译 → 挂载拖动 →
-刷新保留）、#I14 概念图谱（先修边 / 掌握度配色 / 节点数随注册卸载变化 / 点击跳沙盒）、
-#I15 同步产品入口（服务地址 / 匿名 ID / 待上传数 / 最近错误 / 即时重绘 / 数据诚实文案）。
+仍打开 4 条：#I9 模拟骨架（曹），以及偿还 #19（真实 `/generate` 代理）、#20（多模态能力口径）、
+#21（生成模板持久化）。付名下的前端部分已落地，**服务端代理与端到端模型联调仍待秦 / 姜**，
+见 [`docs/02-路线图与任务看板.md`](docs/02-路线图与任务看板.md)。
 
-仍在进行：#I9 模拟骨架（曹），以及偿还 Issue #19 / #20 / #21（真实 `/generate` 代理、多模态输入能力、
-生成模板持久化），见 [`docs/02-路线图与任务看板.md`](docs/02-路线图与任务看板.md)。
+**输入能力口径（不要夸大）**：本机只读「文字 / 文件名 / 图片内嵌文字」，不识别画面内容、不转写语音；
+**语音只认文件名，请改用文字，或把概念写进文件名**。图片与语音字节不上传。
+生成代理未配置时，未收录概念只给本地草稿（不是 AI 生成、刷新不保留）；配置后由服务端调用模型，
+模型模板会落盘并在刷新后恢复，本地草稿仍不落盘。
 
-校验基线：`npm test` **267 项**、`npm run api:smoke` **30 项**、`npm run api:browser` **31 项**、
+校验基线：`npm test` **292 项**、`npm run api:smoke` **30 项**、`npm run api:browser` **37 项**、
 `npm run check:anon` PASS（`npm run check` = test + api:smoke + check:anon；api:browser 单独跑）。
 
 ---
@@ -35,7 +40,7 @@
 ```bash
 npm test            # 语法 / 脚本路径 / DOM 引用 / 数值稳定性 / DSL / 表达式安全 / 契约样例 / 四视图验收
 npm run api:smoke   # 真实本机 HTTP + 数据层同步回归（30 项）
-npm run api:browser # 真实浏览器 UI 冒烟（需本机 Edge / Chrome，31 项，不进 CI）
+npm run api:browser # 真实浏览器 UI 冒烟（需本机 Edge / Chrome，37 项，不进 CI）
 npm run check:anon  # 匿名合规扫描
 npm run check       # test + api:smoke + check:anon 一起跑
 ```
@@ -44,10 +49,10 @@ npm run check       # test + api:smoke + check:anon 一起跑
 
 | 成员 | 职责 | 主要负责 | 起点任务 |
 |---|---|---|---|
-| 付 | 产品统筹 + 前端 / 可视化 | `src/ui/`、`src/viz/`、`assets/`、`index.html`、`docs/` | #I2 / #I3 / #I14 / #I15 代码已完成，待网页关闭 |
-| 姜 | 算法 / ML：概念建模、AI 生成、多模态识别 | `src/model/` | #I4 / #I5 / #I6 已完成，下一步偿还 AI 代理链路与输入能力 |
+| 付 | 产品统筹 + 前端 / 可视化 | `src/ui/`、`src/viz/`、`assets/`、`index.html`、`docs/` | #I2 / #I3 / #I14 / #I15 已关闭；#19 / #20 / #21 的前端部分已落地 |
+| 姜 | 算法 / ML：概念建模、AI 生成、多模态识别 | `src/model/` | #I4 / #I5 / #I6 已完成，下一步 #19 端到端联调、#20 已选冻结 |
 | 曹 | 游戏 / 模拟引擎：沙盒运行骨架 | `src/core/` | #I7 / #I8 已完成，下一步 #I9 模拟骨架 |
-| 秦 | 后端 / 多设备 / 工程 / 文档 | `services/api/`、`src/learning/data.js` | #I10 / #I11 / #I12 已完成，配合 #I15 与可选后端部署 |
+| 秦 | 后端 / 多设备 / 工程 / 文档 | `services/api/`、`src/learning/data.js` | #I10 / #I11 / #I12 已完成，下一步 #19 的 `POST /generate` |
 
 > 表内单字为姓氏，仅作分工标识；对外材料不出现成员全名。
 
@@ -56,11 +61,12 @@ npm run check       # test + api:smoke + check:anon 一起跑
 ## 架构与目录
 
 ```
-输入层   文字 / 文件名 / 图片内文字 → 概念   src/model/generator.js（已接，本机处理）
+输入层   文字 / 文件名 / 图片内嵌文字 → 概念  src/model/generator.js（本机处理；语音只认文件名）
 建模层   概念 → TemplateSpec              contracts/template.schema.json + TTK.dsl.prompt/draft
 生成层   TemplateSpec → 可运行沙盒         src/model/dsl.js → src/core/engine.js
 表现层   ComputeResult → Canvas / 指标卡   src/viz/ + src/ui/
 闭环层   轨迹 → 掌握度 → 推荐下一个概念    src/learning/ + services/api/（可选同步服务）
+设置层   生成代理 endpoint / model         src/ui/settings.js（本机，不进轨迹 / 同步 / 导出）
 ```
 
 | 目录 | 内容 |
@@ -70,7 +76,7 @@ npm run check       # test + api:smoke + check:anon 一起跑
 | `src/model/` | 10 个精修模板、DSL 编译器、概念识别与模板生成（代理可选） |
 | `src/viz/` | 声明式 Canvas 渲染器 |
 | `src/learning/` | 数据适配器、概念图谱与学习诊断 |
-| `src/ui/` | 页面装配、四视图路由与精修视图、同步产品入口 |
+| `src/ui/` | 页面装配、四视图路由与精修视图、同步与生成代理入口、本机设置 |
 | `services/api/` | 后端接口定义与实现目录 |
 | `docs/` | 分工、接口契约、任务看板、环境、合规、ADR |
 | `tools/` | 本地与 CI 校验脚本 |
@@ -86,11 +92,17 @@ npm run check       # test + api:smoke + check:anon 一起跑
   localStorage**（键名见 `docs/01` 第 5 节）。PC 与手机、以及 `file://` 与 Pages 站点之间，
   记录彼此独立、互不干涉。
 - **怎么交接**：`TTK.data.exportAll(engine)` 导出匿名 JSON，`TTK.data.importAll(文本)` 在另一台设备导入；
-  这是当前推荐的备份 / 迁移方式，导出内容符合 `learning-trace.schema.json`。
+  这是当前推荐的备份 / 迁移方式，导出内容符合 `learning-trace.schema.json`，
+  **含 `customTemplates`**（工坊保存的模板与模型生成的模板共用这一份，不另做格式）。
+  界面入口在「学习报告」的导出 / 导入按钮，「模板工坊」也接了同一组入口；导入后自定义模板会立即挂回引擎。
 - **可选同步**：只有需要多设备自动合并时，才运行 `npm run api`（本机 Node 服务，默认 `127.0.0.1:8787/v1`）
   或另行把该服务部署到公网，再用 `TTK.data.remote.configure(url)` 接入。界面入口在学习记录抽屉的
   「跨设备同步（可选）」：可填服务地址、查看 / 输入 16 位匿名 ID、看待上传数与最近错误、立即同步或恢复本地模式；
   页面底部措辞会随模式切换，**未配置时零网络请求**。公网后端是可选增强，当前不部署不影响演示与本地评测。
+- **AI 生成代理（可选）**：抽屉里的「AI 生成代理（可选）」可填 `POST /generate` 地址与模型名，
+  存在本机 `ttk.generator.v1`（不进轨迹 / 同步队列 / 导出 JSON），刷新后自动恢复；清空即回本地草稿模式。
+  模型密钥只放服务端环境变量，前端不输入、不携带。仓库里的 `services/api/` 目前**还没有** `/generate`
+  实现（偿还 #19 归秦），所以配好地址前请勿把演示说成「模型已端到端接入」。
 
 ## 协作规则
 

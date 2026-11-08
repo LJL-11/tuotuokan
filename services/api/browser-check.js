@@ -319,6 +319,45 @@ function trace(anonId) {
       uy2.status.indexOf('匿名 ID') >= 0, uiSyncOn);
     await cdp.eval('TTK.data.remote.configure("")');
 
+    // 8. 偿还 #19 / #20 / #21 的前端入口在真实浏览器里的冒烟
+    var capUi = await cdp.eval('(function(){var h=document.getElementById("askPrivacy").textContent;return JSON.stringify({honest:h.indexOf("语音只认文件名")>=0&&h.indexOf("请改用文字，或把概念写进文件名")>=0,panel:!!document.getElementById("genEndpoint")&&!!document.getElementById("genModel"),status:document.getElementById("genStatus").textContent})})()');
+    var cap = JSON.parse(capUi);
+    ok('能力口径与生成代理面板在真实页面可见',
+      cap.honest === true && cap.panel === true && cap.status.indexOf('本地草稿') >= 0, capUi);
+
+    var genCfg = await cdp.eval('(function(){document.getElementById("genEndpoint").value="http://127.0.0.1:8791/generate";document.getElementById("genModel").value="browser-model";document.getElementById("genSave").click();return JSON.stringify({enabled:TTK.generator.config().enabled,saved:TTK.settings.readGenConfig(),status:document.getElementById("genStatus").textContent})})()');
+    var gc = JSON.parse(genCfg);
+    ok('界面可配置 endpoint / model 并写入本机',
+      gc.enabled === true && gc.saved.endpoint.indexOf('/generate') >= 0 &&
+      gc.saved.model === 'browser-model' && gc.status.indexOf('browser-model') >= 0, genCfg);
+
+    // 用注入的 transport 模拟服务端返回合法模板，走完整的 recognize → generate → mount → 落盘链路
+    await cdp.eval('(function(){var s=JSON.parse(JSON.stringify(TTK.dsl.example));s.id="browser_llm";s.name="浏览器模型模板";TTK.generator.configure({endpoint:"http://127.0.0.1:8791/generate",model:"browser-model",transport:function(){return JSON.parse(JSON.stringify(s))}});document.getElementById("conceptInput").value="一个完全未收录的概念xyz";document.getElementById("askBtn").click();return "ok"})()');
+    await wait(600);
+    var genAfter = await cdp.eval('JSON.stringify({mounted:!!TTK.engine.get("browser_llm"),custom:TTK.data.custom().some(function(s){return s.id==="browser_llm"&&s.source==="llm"}),hint:document.getElementById("askHint").textContent,exported:JSON.parse(TTK.data.exportAll(TTK.engine)).customTemplates.some(function(s){return s.id==="browser_llm"})})');
+    var ga = JSON.parse(genAfter);
+    ok('模型模板落盘、可随导出 JSON 备份且文案标明 AI 来源',
+      ga.mounted === true && ga.custom === true && ga.exported === true &&
+      ga.hint.indexOf('模型生成') >= 0, genAfter);
+
+    var reloaded3 = cdp.once('Page.loadEventFired');
+    await cdp.send('Page.reload', { ignoreCache: true });
+    await reloaded3; await wait(500);
+    var after3 = await cdp.eval('JSON.stringify({mounted:!!TTK.engine.get("browser_llm"),cfg:TTK.settings.readGenConfig(),enabled:TTK.generator.config().enabled})');
+    var a3 = JSON.parse(after3);
+    ok('刷新后模型模板与代理配置都还在',
+      a3.mounted === true && a3.enabled === true && a3.cfg.model === 'browser-model', after3);
+
+    var cleared = await cdp.eval('(function(){document.getElementById("journalBtn").click();document.getElementById("genClear").click();return JSON.stringify({enabled:TTK.generator.config().enabled,cfg:TTK.settings.readGenConfig(),status:document.getElementById("genStatus").textContent})})()');
+    var cl = JSON.parse(cleared);
+    ok('清空配置回到本地草稿模式',
+      cl.enabled === false && cl.cfg.endpoint === '' && cl.status.indexOf('本地草稿') >= 0, cleared);
+
+    var draftUi = await cdp.eval('(function(){var before=TTK.data.custom().length;document.getElementById("conceptInput").value="另一个未收录概念abc";document.getElementById("askBtn").click();return JSON.stringify({before:before,after:TTK.data.custom().length,hint:document.getElementById("askHint").textContent})})()');
+    var du = JSON.parse(draftUi);
+    ok('本地草稿不落盘且文案标明不是 AI 生成',
+      du.before === du.after && du.hint.indexOf('本地草稿') >= 0, draftUi);
+
   } catch (e) {
     ok('验收过程未抛异常', false, e && e.message);
   } finally {

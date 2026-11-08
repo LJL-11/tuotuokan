@@ -9,6 +9,7 @@
  * #I2 报告：聚合卡片 / 柱状图 / 掌握度 / 时间线 + 匿名导出导入；
  * #I3 工坊：JSON 编辑 → 校验定位 → expr 白名单编译 → 挂载预览 → 保存；
  * #I14 图谱：layout() 画先修关系，节点数随 register/unregister、颜色随掌握度变化。
+ * #21：工坊与报告共用 exportReport / importReport 同一入口，导入后由 app.restoreCustom() 立即挂回引擎。
  * 视图重绘只改自己的容器；订阅 TTK.data 后数据一变就即时重绘。
  */
 (function (global) {
@@ -305,6 +306,11 @@
       rerender(); return false;
     }
     var res = TTK.data.importAll(text);
+    // #21：导入的 customTemplates 不只写回 localStorage，还立刻挂回引擎，
+    // 这样另一台设备恢复后侧栏 / 图谱 / 工坊列表当次就能看到，不必手动刷新。
+    if (res.ok && TTK.app && typeof TTK.app.restoreCustom === 'function') {
+      try { TTK.app.restoreCustom(); } catch (e) { /* 单个坏模板由恢复入口自行跳过 */ }
+    }
     reportNotice = res.ok
       ? { text: '已导入 ' + res.events + ' 条事件；聚合卡片、图表、掌握度与时间线已即时刷新', kind: 'ok' }
       : { text: '导入失败：' + res.error, kind: 'bad' };
@@ -604,8 +610,9 @@
     var text = studioDraft === null ? JSON.stringify(blank, null, 2) : studioDraft;
     var saved = customList();
     var list = saved.length ? saved.map(function (s) {
+      var badge = s && s.source === 'llm' ? '<span class="studio-badge">模型生成</span>' : '';
       return '<div class="studio-saved"><span>' + esc((s && s.name) || (s && s.id) || '未命名') +
-        ' <small>' + esc((s && s.id) || '') + '</small></span>' +
+        ' <small>' + esc((s && s.id) || '') + '</small>' + badge + '</span>' +
         '<button class="btn tiny" data-studio-load="' + esc(s && s.id) + '">载入</button>' +
         '<button class="btn tiny" data-studio-del="' + esc(s && s.id) + '">删除</button></div>';
     }).join('') : '<div class="empty">还没有保存的自定义模板。</div>';
@@ -618,10 +625,17 @@
       '<button id="studioSave" class="btn">保存到本机</button>' +
       '<button id="studioExample" class="btn">载入 spring 示例</button>' +
       noticeHtml(studioNotice, 'studioMsg') + '</div>' +
+      '<div class="studio-actions">' +
+      '<button id="studioExport" class="btn">导出 JSON</button>' +
+      '<button id="studioImport" class="btn">导入恢复</button>' +
+      '<input id="studioImportFile" type="file" accept=".json,application/json" hidden>' +
+      '<span class="studio-note">与「学习报告」共用 exportAll / importAll 同一入口</span></div>' +
+      (reportExportText ? '<label class="studio-label" for="studioExportText">导出内容（可手动复制）</label>' +
+        '<textarea id="studioExportText" class="report-export-text" readonly></textarea>' : '') +
       '<div id="studioPreview" class="studio-preview"><h3>即时预览</h3>' +
       '<div id="studioPreviewBody"><div class="empty">点「编译并挂载」后会在这里画出曲线与指标。</div></div></div>' +
       '<h3>已保存的自定义模板（刷新后自动挂载）</h3><div class="studio-list">' + list + '</div>',
-      '粘贴 contracts/examples/spring.json → 校验 → 编译挂载 → 切到沙盒拖动；非法公式会指出行号、字段与标识符。',
+      '粘贴 contracts/examples/spring.json → 校验 → 编译挂载 → 切到沙盒拖动；非法公式会指出行号、字段与标识符。导出 / 导入与「学习报告」共用同一入口，自定义模板随 JSON 一起备份与恢复。',
       'M2');
     var ta = $('studioJson');
     if (ta) {
@@ -635,12 +649,27 @@
       ['studioExample', function () {
         studioDraft = JSON.stringify(TTK.dsl.example, null, 2);
         setStudioNotice('已载入 spring 示例；点「编译并挂载」即可拖动参数', 'ok');
+      }],
+      ['studioExport', exportReport],
+      ['studioImport', function () {
+        var f = $('studioImportFile');
+        if (f && typeof f.click === 'function') f.click();
       }]
     ];
     binds.forEach(function (b) {
       var el2 = $(b[0]);
       if (el2) el2.addEventListener('click', b[1]);
     });
+    var si = $('studioImportFile');
+    if (si) si.addEventListener('change', function () {
+      var f = si.files && si.files[0];
+      readImportFile(f, function (text) { if (text) importReport(text); });
+      si.value = '';
+    });
+    if (reportExportText) {
+      var exportBox = $('studioExportText');
+      if (exportBox) exportBox.value = reportExportText;
+    }
     each(el.querySelectorAll('[data-studio-load]'), function (btn) {
       btn.addEventListener('click', function () { loadStudio(btn.getAttribute('data-studio-load')); });
     });

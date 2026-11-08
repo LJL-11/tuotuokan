@@ -15,7 +15,7 @@
         <span class="tagline">把抽象概念变成能拖的沙盒</span>
       </div>
       <div class="ask-area">
-        <p id="askPrivacy" class="ask-privacy">图片和语音只在本机识别文件名，以及画面里能读到的文字。点「图片 / 语音」前请知悉：这些内容不会上传。</p>
+        <p id="askPrivacy" class="ask-privacy">输入只在本机读「文字 / 文件名 / 图片内嵌文字」，不识别画面内容、不转写语音。语音只认文件名，请改用文字，或把概念写进文件名。图片和语音内容不会上传。</p>
         <div class="ask-row">
           <span class="ask-prefix">我不懂</span>
           <input id="conceptInput" type="text" autocomplete="off" placeholder="过拟合 / 供需 / 抛体 / R₀ …">
@@ -145,11 +145,26 @@
       </div>
       <div id="syncStatus" class="sync-status" role="status"></div>
     </div>
+
+    <div class="sync-box">
+      <h3>AI 生成代理（可选）</h3>
+      <p id="genHint" class="sync-hint">默认不配代理：未收录概念只给本地草稿（不是 AI 生成，刷新不保留）。填入服务地址后由服务端调用模型，模型密钥只放服务端，前端不携带、不输入。</p>
+      <label class="sync-label" for="genEndpoint">服务地址（POST /generate）</label>
+      <input id="genEndpoint" class="sync-input" type="url" autocomplete="off" placeholder="http://127.0.0.1:8787/generate">
+      <label class="sync-label" for="genModel">模型名（由服务端约定）</label>
+      <input id="genModel" class="sync-input" type="text" autocomplete="off" maxlength="60" placeholder="留空则由服务端决定">
+      <div class="sync-actions">
+        <button id="genSave" class="btn tiny primary">保存并启用</button>
+        <button id="genClear" class="btn tiny">恢复本地草稿模式</button>
+      </div>
+      <div id="genStatus" class="sync-status" role="status"></div>
+    </div>
   </aside>
 
   <!-- 传统 script 标签：双击 index.html 即可运行，file:// 下无 CORS 问题。
        顺序 = 依赖顺序，新增模块请按分层追加；各目录 owner 见 README / CODEOWNERS。
-       四视图由 #I1 接入；报告 / 工坊 / 图谱精修见 #I2 / #I3 / #I14，同步入口见 #I15。 -->
+       四视图由 #I1 接入；报告 / 工坊 / 图谱精修见 #I2 / #I3 / #I14，同步入口见 #I15，
+       生成代理配置与能力口径见偿还 #19 / #20 / #21。 -->
   <script src="src/core/engine.js"></script>      <!-- 曹：状态与数学工具 -->
   <script src="src/core/expr.js"></script>        <!-- 曹：安全表达式求值 -->
   <script src="src/model/dsl.js"></script>        <!-- 姜：模板 DSL 编译 -->
@@ -158,7 +173,8 @@
   <script src="src/model/templates.js"></script>  <!-- 姜：精修概念模板库 -->
   <script src="src/learning/data.js"></script>   <!-- 秦：数据层适配器 -->
   <script src="src/learning/graph.js"></script>  <!-- 付+秦：概念图谱 / 诊断 -->
-  <script src="src/ui/views.js"></script>        <!-- 付：四视图路由与最小可用视图 -->
+  <script src="src/ui/settings.js"></script>     <!-- 付：本机设置（生成代理配置，经数据层读写） -->
+  <script src="src/ui/views.js"></script>        <!-- 付：四视图路由与精修视图 -->
   <script src="src/ui/app.js"></script>          <!-- 付：页面交互与装配 -->
 </body>
 </html>
