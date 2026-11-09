@@ -254,12 +254,13 @@
       JSON.stringify(example, null, 2),
       '',
       '规则：',
-      '1. params 1-6 个，每个含 key/label/min/max/step/default/unit/hint；key 用字母开头的标识符，不能叫 x、p、m、M、Math、PI、E（后两个是公式常量，物理量请换名，如电动势用 V0）。',
+      '1. params 1-6 个，每个含 key/label/min/max/step/default/unit/hint；key 用字母开头的标识符。严禁使用单字母 x、p、m、M、E 与保留字 Math、PI（模型最常犯：质量叫 M、能量叫 E——必须写多字符名，如质量 Mstar、能量 E0、声速 c0）。',
       '2. 公式 expr 里 x 是横轴自变量，p.key 取参数值，m.v0 是第 1 个指标值；可用 Math.sin/cos/exp/log/sqrt/pow、PI、min/max/clamp、四则、^、比较、&& || !、三元 ?:。',
       '3. expr 只允许数学表达式：禁止赋值、语句、字符串、下标、对象、函数定义和任何全局访问。运行时会走受限解析器，不执行 JS。',
       '4. series 1-4 条，metrics 0-5 个，challenges 0-3 个（challenge.expr 是返回布尔的表达式）。',
       '5. brief/concept/insight 用简体中文，面向没学过该概念的大学生，讲清「拖哪个参数会看到什么」。',
-      '6. id 用小写英文唯一的短标识；prerequisites 填已有模板 id（如 oscillation / gradient / overfit / supply / projectile / epidemic / bayes / compound / decay / logistic），没有就留空数组。'
+      '6. id 用小写英文唯一的短标识；prerequisites 填已有模板 id（如 oscillation / gradient / overfit / supply / projectile / epidemic / bayes / compound / decay / logistic），没有就留空数组。',
+      '7. 输出务必精简（生成耗时与输出长度成正比，超时会失败）：series 最多 2 条，metrics 最多 2 个，challenges 最多 1 个；brief ≤ 20 字，concept ≤ 80 字，insight ≤ 50 字，hint ≤ 12 字；不要输出任何多余字段。'
     ].join('\n');
   }
 

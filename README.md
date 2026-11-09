@@ -108,7 +108,7 @@ npm run check       # test + api:smoke + check:anon 一起跑
   模型密钥只放服务端环境变量，前端不输入、不携带。`services/api/` 已实现 `POST /v1/generate`（#19），
   通过 `TTK_LLM_URL / TTK_LLM_API_KEY / TTK_LLM_MODEL / TTK_LLM_THINKING` 配置上游；页面填写
   `http://127.0.0.1:8787/v1/generate`。供应商已选定：阿里云百炼 `deepseek-v4.1-flash-1017`
-  （混合推理模型，须 `TTK_LLM_THINKING=off`，实测完整模板生成约 3–7 秒，11-09 四概念联调 4/4 通过）。
+  （混合推理模型，须 `TTK_LLM_THINKING=off`；端到端验收 13/13、批测 9/10、成功耗时 2.8–4.3s，11-09）。
   启动与错误处理见 [`services/api/README.md`](services/api/README.md)，交接见
   [`services/api/DELIVERY-R1-R3.md`](services/api/DELIVERY-R1-R3.md)。
 
