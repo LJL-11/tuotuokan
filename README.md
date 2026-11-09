@@ -27,7 +27,7 @@
 生成代理未配置时，未收录概念只给本地草稿（不是 AI 生成、刷新不保留）；配置后由服务端调用模型，
 模型模板会落盘并在刷新后恢复，本地草稿仍不落盘。
 
-校验基线：`npm test` **363 项**、`npm run api:smoke` **40 项**、`npm run api:browser` **37 项**、
+校验基线：`npm test` **363 项**、`npm run api:smoke` **41 项**、`npm run api:browser` **37 项**、
 `npm run check:browser` **18 项**（真实 Canvas 模拟验收）、`npm run check:anon` PASS
 （`npm run check` = test + api:smoke + check:anon；浏览器类脚本单独跑）。
 
@@ -41,7 +41,7 @@
 
 ```bash
 npm test            # 语法 / 脚本路径 / DOM 引用 / 数值稳定性 / DSL / 表达式安全 / 契约样例 / 四视图验收
-npm run api:smoke   # 真实本机 HTTP + 数据层同步 + 模拟模型上游回归（40 项，不调用外部模型）
+npm run api:smoke   # 真实本机 HTTP + 数据层同步 + 模拟模型上游回归（41 项，不调用外部模型）
 npm run api:browser # 真实浏览器 UI 冒烟（需本机 Edge / Chrome，37 项，不进 CI）
 npm run check:browser # 真实 Canvas 模拟骨架验收（步进 / 暂停 / 调速，18 项）
 npm run probe:budget  # 重算预算与降级链路探针
@@ -106,8 +106,9 @@ npm run check       # test + api:smoke + check:anon 一起跑
 - **AI 生成代理（可选）**：抽屉里的「AI 生成代理（可选）」可填 `POST /generate` 地址与模型名，
   存在本机 `ttk.generator.v1`（不进轨迹 / 同步队列 / 导出 JSON），刷新后自动恢复；清空即回本地草稿模式。
   模型密钥只放服务端环境变量，前端不输入、不携带。`services/api/` 已实现 `POST /v1/generate`（#19），
-  通过 `TTK_LLM_URL / TTK_LLM_API_KEY / TTK_LLM_MODEL` 配置上游；页面填写
-  `http://127.0.0.1:8787/v1/generate`。默认不调用模型，当前验收使用本机模拟上游，真实供应商仍待选定与联调。
+  通过 `TTK_LLM_URL / TTK_LLM_API_KEY / TTK_LLM_MODEL / TTK_LLM_THINKING` 配置上游；页面填写
+  `http://127.0.0.1:8787/v1/generate`。供应商已选定：阿里云百炼 `deepseek-v4.1-flash-1017`
+  （混合推理模型，须 `TTK_LLM_THINKING=off`，实测完整模板生成约 3–7 秒，11-09 四概念联调 4/4 通过）。
   启动与错误处理见 [`services/api/README.md`](services/api/README.md)，交接见
   [`services/api/DELIVERY-R1-R3.md`](services/api/DELIVERY-R1-R3.md)。
 

@@ -92,6 +92,15 @@ module.exports = async function (h) {
     assert.equal(seen[seen.length - 1].body.model, 'chosen-model');
     assert.equal(fs.existsSync(path.join(h.tmp, 'generate', 'db.json')), false);
   });
+  await h.test('#19 TTK_LLM_THINKING=off 声明 enable_thinking:false，默认不发送，非法值拒绝启动', async function () {
+    mode = 'choices';
+    var thinking = await h.listen(createServer({ dataDir: path.join(h.tmp, 'thinking'), llm: Object.assign({}, llm, { thinking: 'off' }) }));
+    await call(thinking);
+    assert.equal(seen[seen.length - 1].body.enable_thinking, false);
+    await call(api);
+    assert.equal(seen[seen.length - 1].body.enable_thinking, undefined);
+    assert.throws(function () { createServer({ dataDir: path.join(h.tmp, 'bad-thinking'), llm: Object.assign({}, llm, { thinking: 'maybe' }) }); }, /^Error: 模型代理环境变量配置非法，请检查 TTK_LLM_\*$/);
+  });
   await h.test('#19 上游非法 JSON / 模板 / 超大响应 / 500 / 重定向不透传，429 明确返回', async function () {
     for (var errorMode of ['invalid-json', 'invalid-spec', 'oversized', 'server-error', 'redirect', 'busy']) {
       mode = errorMode; var result = await call();

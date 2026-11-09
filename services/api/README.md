@@ -14,7 +14,7 @@ npm run check
 npm run api:browser
 ```
 
-服务默认监听 `http://127.0.0.1:8787/v1`。`npm run api:smoke` 覆盖原 I10 的 30 项与 #19 / #21 新增 10 项，共 40 项；使用随机端口、模拟模型上游和 `.local/ttk-api-*` 临时库，结束后校验路径并清理，不碰真实学习数据、不调用外部模型。
+服务默认监听 `http://127.0.0.1:8787/v1`。`npm run api:smoke` 覆盖原 I10 的 30 项与 #19 / #21 新增 11 项，共 41 项；使用随机端口、模拟模型上游和 `.local/ttk-api-*` 临时库，结束后校验路径并清理，不碰真实学习数据、不调用外部模型。
 
 `npm run api:browser` 是**真实浏览器验收**：自动发现本机 Edge / Chrome，用 CDP 起 headless 实例打开 `file://` 页面，验证拖参数上报、断网刷新补发、跨浏览器读回，#I2 / #I3 / #I14 / #I15 的 UI 冒烟，以及偿还 #19 / #20 / #21 前端入口的生成落盘与刷新恢复（当前 37 项）。找不到浏览器时以退出码 2 跳过，不进 CI（CI 是 Linux 无头环境，装浏览器成本不值）。
 
@@ -114,25 +114,31 @@ I11 数据侧与 I12 静态部署均已完成（网页 #14 / #8 已关闭）：G
 | `TTK_LLM_URL` | 空（代理未启用） | 上游完整 Chat Completions URL，包含 `/chat/completions`；HTTPS，本机模拟允许 HTTP loopback；不接受 URL 凭证、查询串或片段 |
 | `TTK_LLM_API_KEY` | 空 | 服务端模型密钥；本机无鉴权模型可留空 |
 | `TTK_LLM_MODEL` | 空 | 默认模型名；前端传非空 `model` 可覆盖 |
+| `TTK_LLM_THINKING` | 空（不发送） | `off` 时向上游声明 `enable_thinking:false` 关闭混合推理模型的思考阶段；`on` 或留空不发送该字段；其他值拒绝启动 |
 | `TTK_LLM_TIMEOUT_MS` | `6500` | 总请求超时，整数 1–7000 毫秒，早于客户端 8 秒超时 |
 | `TTK_LLM_RATE_LIMIT` | `20` | 每个服务进程全局每分钟最多请求数，整数 1–10000；重试也计次 |
 | `TTK_LLM_MAX_CONCURRENT` | `2` | 同时生成数，整数 1–100 |
 
-上游使用非流式 `{model, stream:false, messages:[{role:'system', content:prompt}, {role:'user', content:concept}]}`。
-协议参考 [Chat Completions 兼容接口文档](https://help.aliyun.com/en/model-studio/qwen-api-via-openai-chat-completions)；
-具体服务商与模型尚未选定。上游响应支持 TemplateSpec、`{spec}`、`choices[0].message.content`（可含 JSON 代码围栏）。
+上游使用非流式 `{model, stream:false, messages:[{role:'system', content:prompt}, {role:'user', content:concept}]}`；
+`TTK_LLM_THINKING=off` 时额外携带 `enable_thinking:false`。
+协议参考 [Chat Completions 兼容接口文档](https://help.aliyun.com/en/model-studio/qwen-api-via-openai-chat-completions)。
+已选定供应商：**阿里云百炼 · `deepseek-v4.1-flash-1017`（需 `TTK_LLM_THINKING=off`，完整模板生成约 3–7 秒）**。
+上游响应支持 TemplateSpec、`{spec}`、`choices[0].message.content`（可含 JSON 代码围栏）。
 代理校验模板形状并去掉顶层额外元数据，客户端仍须经过 DSL / 表达式白名单；服务端不执行公式。
 
 配置示例（服务商确认后替换占位值，密钥通过进程环境注入，不写进源码）：
 
 ```powershell
-$env:TTK_LLM_URL = 'https://<模型服务域名>/v1/chat/completions'
-$env:TTK_LLM_MODEL = '<模型名>'
+$env:TTK_LLM_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'
+$env:TTK_LLM_MODEL = 'deepseek-v4.1-flash-1017'
+$env:TTK_LLM_THINKING = 'off'
 # 在本机设置 TTK_LLM_API_KEY；不要把真实值写入仓库或群聊。
 npm run api
 ```
 
 Node 18 启动不会自动读取 `.env`，请使用当前终端的环境变量；改配置后重启服务。
+Node 20.6+ 也可以把配置放进仓库根目录的 `.env`（已被 `.gitignore` 忽略），用
+`node --env-file=.env services/api/server.js` 启动。
 页面「学习记录 → AI 生成代理」填 `http://127.0.0.1:8787/v1/generate`，模型名可留空。
 这是**生成代理地址**；同步服务地址仍是 `http://127.0.0.1:8787/v1`，两项独立配置。
 

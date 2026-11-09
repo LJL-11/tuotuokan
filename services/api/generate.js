@@ -22,8 +22,10 @@ function settings(options) {
   var key = get('apiKey', 'TTK_LLM_API_KEY') || '';
   var model = get('model', 'TTK_LLM_MODEL') || '';
   if (typeof key !== 'string' || /[\x00-\x1f\x7f]/.test(key) || !validModel(model)) throw new Error('模型代理配置非法');
+  var thinking = get('thinking', 'TTK_LLM_THINKING') || '';
+  if (['', 'on', 'off'].indexOf(thinking) < 0) throw new Error('模型代理配置非法');
   return {
-    target: target, apiKey: key, model: model,
+    target: target, apiKey: key, model: model, thinking: thinking,
     timeoutMs: positive(get('timeoutMs', 'TTK_LLM_TIMEOUT_MS'), 6500, 7000),
     rateLimit: positive(get('rateLimit', 'TTK_LLM_RATE_LIMIT'), 20, 10000),
     maxConcurrent: positive(get('maxConcurrent', 'TTK_LLM_MAX_CONCURRENT'), 2, 100)
@@ -63,9 +65,13 @@ function upstream(config, body, model, onCancel) {
       if (error) reject(error); else resolve(spec);
     }
     function fail(status, message) { finish({ status: status, message: message }); if (req) req.destroy(); }
-    var payload = JSON.stringify({ model: model, stream: false, messages: [
+    var payload = { model: model, stream: false, messages: [
       { role: 'system', content: body.prompt }, { role: 'user', content: body.concept.trim() }
-    ] });
+    ] };
+    // 部分混合推理模型（如百炼 deepseek 系列）默认先思考再输出，完整模板生成可达 30s，
+    // 远超总超时；TTK_LLM_THINKING=off 时显式关闭思考模式（其他供应商不受影响，默认不发该字段）。
+    if (config.thinking === 'off') payload.enable_thinking = false;
+    payload = JSON.stringify(payload);
     var headers = { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Content-Length': Buffer.byteLength(payload) };
     if (config.apiKey) headers.Authorization = 'Bearer ' + config.apiKey;
     req = (config.target.protocol === 'https:' ? https : http).request(config.target, {

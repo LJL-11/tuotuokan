@@ -254,7 +254,7 @@
       JSON.stringify(example, null, 2),
       '',
       '规则：',
-      '1. params 1-6 个，每个含 key/label/min/max/step/default/unit/hint；key 用字母开头的标识符，不能叫 x、p、M、Math、m。',
+      '1. params 1-6 个，每个含 key/label/min/max/step/default/unit/hint；key 用字母开头的标识符，不能叫 x、p、m、M、Math、PI、E（后两个是公式常量，物理量请换名，如电动势用 V0）。',
       '2. 公式 expr 里 x 是横轴自变量，p.key 取参数值，m.v0 是第 1 个指标值；可用 Math.sin/cos/exp/log/sqrt/pow、PI、min/max/clamp、四则、^、比较、&& || !、三元 ?:。',
       '3. expr 只允许数学表达式：禁止赋值、语句、字符串、下标、对象、函数定义和任何全局访问。运行时会走受限解析器，不执行 JS。',
       '4. series 1-4 条，metrics 0-5 个，challenges 0-3 个（challenge.expr 是返回布尔的表达式）。',
