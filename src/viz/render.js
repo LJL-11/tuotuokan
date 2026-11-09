@@ -101,6 +101,8 @@
     this.ctx = canvas.getContext('2d');
     this.spec = null;
     this._raf = null;
+    this._geoms = [];      // 每次 draw 记录各面板几何，供悬停十字线定位
+    this._hover = null;    // { x, y } 画布坐标（CSS 像素）
     var self = this;
     this._onResize = function () { self.draw(self.spec); };
     if (global.ResizeObserver) {
@@ -109,6 +111,18 @@
     } else {
       global.addEventListener('resize', this._onResize);
     }
+    // 悬停十字线：只在真实指针设备上有意义；重绘整图 + 覆盖层，成本与一次普通 draw 相同
+    canvas.addEventListener('mousemove', function (e) {
+      if (!self.spec) return;
+      var rect = canvas.getBoundingClientRect();
+      self._hover = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      self.draw(self.spec);
+    });
+    canvas.addEventListener('mouseleave', function () {
+      if (!self._hover) return;
+      self._hover = null;
+      self.draw(self.spec);
+    });
   }
 
   Renderer.prototype.draw = function (spec) {
@@ -138,8 +152,82 @@
     var gap = 10;
     var ph = (h - gap * (panels.length - 1)) / panels.length;
     var self = this;
+    this._geoms = [];
     panels.forEach(function (p, i) {
       self._panel(p, 0, i * (ph + gap), w, ph);
+    });
+    if (this._hover) this._hoverOverlay(w, h);
+  };
+
+  /* 悬停十字线 + 各系列取值提示：把「拖参数看曲线」升级成「指着看数值」 */
+  Renderer.prototype._hoverOverlay = function (w, h) {
+    var hv = this._hover, geoms = this._geoms, ctx = this.ctx;
+    var g = null;
+    for (var i = 0; i < geoms.length; i++) {
+      var q = geoms[i];
+      if (hv.x >= q.left && hv.x <= q.left + q.pw && hv.y >= q.top && hv.y <= q.bottom) { g = q; break; }
+    }
+    if (!g || !g.series.length) return;
+    // 在所有系列的点里找离指针横坐标最近的一条竖线位置
+    var bestX = null, bestDist = Infinity;
+    g.series.forEach(function (s) {
+      (s.points || []).forEach(function (p) {
+        if (!p || !isFinite(p[0]) || !isFinite(p[1])) return;
+        var d = Math.abs(g.X(p[0]) - hv.x);
+        if (d < bestDist) { bestDist = d; bestX = p[0]; }
+      });
+    });
+    if (bestX === null || bestDist > 60) return;
+    var cx = g.X(bestX);
+    // 十字竖线
+    ctx.save();
+    ctx.strokeStyle = 'rgba(79, 70, 229, .38)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(cx, g.top); ctx.lineTo(cx, g.bottom); ctx.stroke();
+    ctx.restore();
+    // 各系列在该 x 的取值点
+    var rows = [['x', bestX, null]];
+    g.series.forEach(function (s) {
+      var near = null, nd = Infinity;
+      (s.points || []).forEach(function (p) {
+        if (!p || !isFinite(p[0]) || !isFinite(p[1])) return;
+        var d = Math.abs(p[0] - bestX);
+        if (d < nd) { nd = d; near = p; }
+      });
+      if (near) {
+        rows.push([s.name || '值', near[1], s.color || C.indigo]);
+        ctx.beginPath();
+        ctx.arc(g.X(near[0]), g.Y(near[1]), 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = s.color || C.indigo;
+        ctx.stroke();
+      }
+    });
+    // 提示框
+    ctx.font = '600 11px system-ui, -apple-system, sans-serif';
+    var tw = 0;
+    rows.forEach(function (r) { tw = Math.max(tw, ctx.measureText(r[0] + ' ' + short(r[1])).width); });
+    var bw = Math.min(tw + 22, g.pw - 8), bh = rows.length * 16 + 10;
+    var bx = cx + 12; if (bx + bw > g.left + g.pw) bx = cx - 12 - bw;
+    var by = Math.min(Math.max(g.top + 6, hv.y - bh / 2), g.bottom - bh - 4);
+    ctx.fillStyle = 'rgba(30, 41, 59, .92)';
+    ctx.beginPath();
+    ctx.moveTo(bx + 6, by); ctx.arcTo(bx + bw, by, bx + bw, by + bh, 6);
+    ctx.arcTo(bx + bw, by + bh, bx, by + bh, 6); ctx.arcTo(bx, by + bh, bx, by, 6);
+    ctx.arcTo(bx, by, bx + bw, by, 6); ctx.closePath();
+    ctx.fill();
+    rows.forEach(function (r, idx) {
+      var y = by + 15 + idx * 16;
+      if (r[2]) { ctx.fillStyle = r[2]; ctx.fillRect(bx + 8, y - 7, 9, 3); }
+      ctx.fillStyle = r[2] ? '#e2e8f0' : '#94a3b8';
+      ctx.textAlign = 'left';
+      ctx.fillText(String(r[0]), bx + (r[2] ? 22 : 8), y);
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'right';
+      ctx.fillText(short(r[1]), bx + bw - 8, y);
     });
   };
 
@@ -203,6 +291,14 @@
     ctx.beginPath();
     ctx.moveTo(left, top); ctx.lineTo(left, bottom); ctx.lineTo(left + pw, bottom);
     ctx.stroke();
+    // 零基准线：比网格略实一点，物理 / 统计模板里 y=0 常有含义
+    if (yd[0] < 0 && yd[1] > 0) {
+      ctx.save();
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1.25;
+      ctx.beginPath(); ctx.moveTo(left, Y(0)); ctx.lineTo(left + pw, Y(0)); ctx.stroke();
+      ctx.restore();
+    }
 
     // 辅助线
     (panel.guides || []).forEach(function (g) {
@@ -303,7 +399,7 @@
       ctx.fillText(panel.xLabel, left + pw, oy + h - 4);
     }
 
-    // 图例
+    // 图例：圆角底衬小胶囊，与页面 chip 风格一致
     var legend = (panel.series || []).filter(function (s) { return s.name; }).slice(0, 6);
     if (legend.length) {
       var lx = left + 8, ly = top + 8;
@@ -313,12 +409,23 @@
         var col = idx % 3, row = Math.floor(idx / 3);
         var x = lx + col * 116, y = ly + row * 16;
         if (x + 110 > left + pw) return;
+        var label = String(s.name), tw = ctx.measureText(label).width;
+        ctx.fillStyle = 'rgba(246, 248, 252, .85)';
+        ctx.beginPath();
+        ctx.moveTo(x - 4, y - 9); ctx.arcTo(x + tw + 16, y - 9, x + tw + 16, y - 1, 4);
+        ctx.arcTo(x + tw + 16, y - 1, x - 4, y - 1, 4); ctx.arcTo(x - 4, y - 1, x - 4, y - 9, 4);
+        ctx.arcTo(x - 4, y - 9, x + tw + 16, y - 9, 4); ctx.closePath();
+        ctx.fill();
         ctx.fillStyle = s.color || C.indigo;
         ctx.fillRect(x, y - 7, 12, 3);
         ctx.fillStyle = C.text;
-        ctx.fillText(s.name, x + 16, y - 3);
+        ctx.fillText(label, x + 16, y - 3);
       });
     }
+
+    // 记录本面板几何，供悬停十字线定位
+    this._geoms.push({ left: left, top: top, pw: pw, pheight: pheight, bottom: bottom,
+      X: X, Y: Y, series: panel.series || [] });
   };
 
   TTK.Renderer = Renderer;

@@ -578,6 +578,7 @@
       asking = true;
       $('askBtn').disabled = true;
       $('askHint').textContent = '正在向已配置的代理请求「' + q + '」…';
+      startGenLoader();
       produced.then(function (result) { landGenerated(q, result); }, function () {
         landGenerated(q, { ai: false, spec: TTK.dsl.draft(q), source: 'local-draft', reason: 'network' });
       });
@@ -586,9 +587,34 @@
     landGenerated(q, produced);
   }
 
+  /* 模型生成等待反馈：三步文案轮换，把 3-4 秒等待讲成「建模过程」 */
+  var GEN_STEPS = ['正在理解概念', '正在推导参数与公式', '正在校验并挂载沙盒'];
+  var genTimer = null, genStepIdx = 0;
+  function startGenLoader() {
+    var bar = $('genLoader'), step = $('genStep'), btn = $('askBtn');
+    if (!bar || !step) return;
+    genStepIdx = 0;
+    step.textContent = GEN_STEPS[0];
+    bar.hidden = false;
+    if (btn) btn.classList.add('busy');
+    if (genTimer) clearInterval(genTimer);
+    genTimer = setInterval(function () {
+      genStepIdx = Math.min(genStepIdx + 1, GEN_STEPS.length - 1);
+      step.textContent = GEN_STEPS[genStepIdx];
+      step.style.animation = 'none'; void step.offsetWidth; step.style.animation = '';
+    }, 1300);
+  }
+  function stopGenLoader() {
+    if (genTimer) { clearInterval(genTimer); genTimer = null; }
+    var bar = $('genLoader'), btn = $('askBtn');
+    if (bar) bar.hidden = true;
+    if (btn) btn.classList.remove('busy');
+  }
+
   function landGenerated(q, result) {
     asking = false;
     $('askBtn').disabled = false;
+    stopGenLoader();
     if (!result || !result.spec) {
       result = { ai: false, spec: TTK.dsl.draft(q), source: 'local-draft', reason: 'invalid' };
     }

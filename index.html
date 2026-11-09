@@ -24,6 +24,11 @@
           <button id="askBtn" class="btn primary">生成沙盒</button>
         </div>
         <div id="askHint" class="ask-hint"></div>
+        <!-- #19 联调配套：模型生成等待期（3-4 秒）的进度反馈，由 app.js 控制显隐 -->
+        <div id="genLoader" class="gen-loader" hidden>
+          <span class="gen-spinner" aria-hidden="true"></span>
+          <span id="genStep" class="gen-step">正在理解概念</span>
+        </div>
       </div>
       <button id="journalBtn" class="btn ghost">
         学习记录 <span id="journalBadge" class="badge">0</span>

@@ -1,6 +1,7 @@
 /* 拖拖看 · 视觉样式（浅色主题 / 移动端友好） */
 :root {
   --indigo: #4f46e5;
+  --indigo-600: #4338ca;
   --indigo-soft: #eef2ff;
   --teal: #0d9488;
   --coral: #e11d48;
@@ -12,7 +13,12 @@
   --bg: #f6f8fc;
   --card: #ffffff;
   --shadow: 0 2px 8px rgba(30, 41, 59, .045), 0 12px 32px rgba(30, 41, 59, .035);
+  --shadow-lift: 0 4px 12px rgba(30, 41, 59, .07), 0 18px 44px rgba(30, 41, 59, .06);
   --radius: 16px;
+  --radius-sm: 10px;
+  --ring: 0 0 0 3px rgba(79, 70, 229, .14);
+  --grad-accent: linear-gradient(100deg, #4f46e5, #7c3aed 55%, #0d9488);
+  --ease: cubic-bezier(.33, 1, .68, 1);
 }
 
 * { box-sizing: border-box; }
@@ -433,4 +439,127 @@ button { cursor: pointer; }
   .studio-json { min-height: 220px; font-size: 11px; }
   .stat-box { gap: 6px; }
   .prog-row > span:first-child { flex-basis: 82px; }
+}
+
+/* ================================================================
+   视觉精修（11-09，付）· 浅色学术风系统性升级
+   原则：不改 DOM 结构与类名，全部通过级联覆盖；动效只用
+   transform / opacity，尊重 prefers-reduced-motion。
+   ================================================================ */
+
+/* ---------- 全局质感 ---------- */
+::selection { background: rgba(79, 70, 229, .16); }
+:focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; border-radius: 4px; }
+* { scrollbar-width: thin; scrollbar-color: #d3dae6 transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: #d3dae6; border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background-color: #b9c3d4; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* 顶栏：底部一线渐变光 + 品牌字微调 */
+.topbar { box-shadow: 0 1px 0 rgba(79, 70, 229, .04), 0 8px 24px rgba(30, 41, 59, .04); }
+.logo { filter: saturate(1.1); }
+
+/* ---------- 按钮体系 ---------- */
+.btn { transition: transform .16s var(--ease), box-shadow .16s var(--ease), border-color .16s, color .16s, background .16s; }
+.btn:active:not(:disabled) { transform: translateY(1px) scale(.98); }
+.btn.primary {
+  background: var(--grad-accent); border-color: transparent;
+  box-shadow: 0 2px 10px rgba(79, 70, 229, .28);
+}
+.btn.primary:hover { box-shadow: 0 4px 16px rgba(79, 70, 229, .36); transform: translateY(-1px); color: #fff; }
+.btn.primary:active { transform: translateY(0); }
+.btn.tiny:hover { border-color: #c7d2fe; }
+
+/* ---------- 概念卡片：悬浮位移 + 图标呼吸 ---------- */
+.tpl-card { position: relative; transition: background .16s, border-color .16s, transform .18s var(--ease); }
+.tpl-card:hover { transform: translateX(3px); }
+.tpl-card.active { box-shadow: inset 3px 0 0 var(--indigo); }
+.tpl-icon { transition: background .18s, color .18s, transform .22s var(--ease); }
+.tpl-card:hover .tpl-icon { transform: rotate(-6deg) scale(1.06); }
+.tpl-card.active .tpl-icon { background: var(--grad-accent); color: #fff; }
+.tpl-dot { transition: box-shadow .2s; }
+.tpl-dot.done { animation: dot-in .4s var(--ease); }
+@keyframes dot-in { from { box-shadow: 0 0 0 0 rgba(13, 148, 136, .3); } to { box-shadow: 0 0 0 3px rgba(13, 148, 136, .12); } }
+
+/* ---------- 视图切换：下划线生长 ---------- */
+.view-tab { position: relative; transition: color .18s; }
+.view-tab::after {
+  content: ''; position: absolute; left: 50%; right: 50%; bottom: -1px; height: 2px;
+  background: var(--grad-accent); border-radius: 2px;
+  transition: left .22s var(--ease), right .22s var(--ease);
+}
+.view-tab:hover::after { left: 30%; right: 30%; }
+.view-tab.active::after { left: 10%; right: 10%; }
+
+/* ---------- 参数面板：拖动态 ---------- */
+.param input[type=range] { transition: box-shadow .18s; }
+.param input[type=range]:active { box-shadow: var(--ring); border-radius: 4px; }
+.param input[type=range]::-webkit-slider-thumb { transition: transform .15s var(--ease), box-shadow .15s; }
+.param input[type=range]:hover::-webkit-slider-thumb,
+.param input[type=range]:active::-webkit-slider-thumb { transform: scale(1.22); box-shadow: 0 2px 8px rgba(79, 70, 229, .35); }
+.param-value { transition: color .15s, transform .15s var(--ease); display: inline-block; }
+.param:has(input[type=range]:active) .param-value { color: var(--indigo-600); transform: scale(1.08); }
+
+/* ---------- 指标卡 & 挑战：微抬升与达成动效 ---------- */
+.metric { transition: transform .18s var(--ease), box-shadow .18s, border-color .18s; }
+.metric:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(30, 41, 59, .08); border-color: #dbe3f0; }
+.challenge.done { animation: challenge-in .35s var(--ease); }
+.challenge.done .check { animation: check-pop .4s var(--ease); }
+@keyframes challenge-in { from { background: #fff; } to { background: #f0fdfa; } }
+@keyframes check-pop { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.3); } 100% { transform: scale(1); opacity: 1; } }
+.challenge .check { display: inline-block; }
+
+/* ---------- 洞察卡 & 画布容器 ---------- */
+.insight-box { position: relative; overflow: hidden; }
+.insight-box::before {
+  content: ''; position: absolute; inset: 0 auto 0 0; width: 3px;
+  background: var(--grad-accent);
+}
+.canvas-wrap { transition: box-shadow .25s; }
+.canvas-wrap:hover { box-shadow: var(--shadow-lift); }
+
+/* ---------- 舞台标题入场 ---------- */
+.stage-head h1 { animation: rise-in .38s var(--ease) both; }
+.stage-head p, .subject-tag { animation: rise-in .38s .05s var(--ease) both; }
+@keyframes rise-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ---------- 抽屉 & Toast ---------- */
+.drawer { transition: transform .32s var(--ease); }
+.toast { transition: opacity .28s, transform .32s var(--ease); }
+
+/* ---------- 图谱：节点过渡 + 当前节点光晕 ---------- */
+.graph-scroll [data-node] rect { transition: fill .18s, stroke-width .18s; }
+.graph-scroll [data-node]:hover rect:first-child { fill: #f8fafc; }
+.graph-scroll [data-node] text { transition: fill .15s; }
+.graph-scroll [data-current] rect:first-child { filter: drop-shadow(0 3px 10px rgba(79, 70, 229, .25)); }
+
+/* ---------- 空状态 ---------- */
+.empty { border: 1.5px dashed #dbe3f0; background: transparent; }
+
+/* ---------- AI 生成加载体验（#19 联调配套） ---------- */
+.gen-loader {
+  display: flex; align-items: center; gap: 10px;
+  margin: 8px 2px 0; padding: 9px 14px;
+  background: var(--indigo-soft); border: 1px solid #dbe4ff; border-radius: 10px;
+  font-size: 12px; color: #3730a3; font-weight: 600;
+  animation: rise-in .3s var(--ease) both;
+}
+.gen-loader[hidden] { display: none; }
+.gen-spinner {
+  flex: 0 0 16px; height: 16px; border-radius: 50%;
+  border: 2.5px solid #c7d2fe; border-top-color: var(--indigo);
+  animation: spin .8s linear infinite;
+}
+.gen-step { animation: step-fade .5s var(--ease) both; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes step-fade { from { opacity: 0; transform: translateX(4px); } to { opacity: 1; transform: none; } }
+
+/* 生成中：主按钮呼吸 */
+.btn.busy { background: var(--indigo-soft); border-color: #c7d2fe; color: var(--indigo-600); animation: busy-pulse 1.2s ease-in-out infinite; }
+@keyframes busy-pulse { 50% { box-shadow: 0 0 0 5px rgba(79, 70, 229, .08); } }
+
+/* ---------- 无障碍：尊重减少动效偏好 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }

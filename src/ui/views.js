@@ -208,23 +208,31 @@
     var edges = layout.edges.map(function (e) {
       var a = byId[e.from], b = byId[e.to];
       if (!a || !b) return '';
-      return '<line x1="' + (a.x + layout.nodeW) + '" y1="' + (a.y + layout.nodeH / 2) +
-        '" x2="' + (b.x - 6) + '" y2="' + (b.y + layout.nodeH / 2) +
-        '" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#ttkArrow)"/>';
+      // 水平手柄的三次贝塞尔：先修边从左到右呈平滑 S 弧，比直线更易读
+      var x1 = a.x + layout.nodeW, y1 = a.y + layout.nodeH / 2;
+      var x2 = b.x - 6, y2 = b.y + layout.nodeH / 2;
+      var dx = Math.max(24, (x2 - x1) / 2);
+      return '<path d="M' + x1 + ',' + y1 + ' C' + (x1 + dx) + ',' + y1 + ' ' + (x2 - dx) + ',' + y2 + ' ' + x2 + ',' + y2 +
+        '" fill="none" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#ttkArrow)"/>';
     }).join('');
     var nodes = layout.nodes.map(function (n) {
       var color = masteryColor(n.mastery);
       var isCurrent = engine.currentId === n.id;
+      var barW = Math.max(30, layout.nodeW - 32);
       return '<g data-node="' + esc(n.id) + '" data-mastery="' + n.mastery.toFixed(3) +
         '"' + (isCurrent ? ' data-current="1"' : '') + ' style="cursor:pointer">' +
         '<rect x="' + n.x + '" y="' + n.y + '" width="' + layout.nodeW + '" height="' + layout.nodeH +
         '" rx="10" fill="' + (isCurrent ? '#f5f3ff' : '#ffffff') + '" stroke="' + color +
         '" stroke-width="' + (isCurrent ? 3 : 1.5) + '"/>' +
         '<rect x="' + n.x + '" y="' + n.y + '" width="5" height="' + layout.nodeH + '" rx="2" fill="' + color + '"/>' +
-        '<text x="' + (n.x + 16) + '" y="' + (n.y + 22) + '" font-size="12" fill="#1e293b">' +
+        '<text x="' + (n.x + 16) + '" y="' + (n.y + 20) + '" font-size="12" font-weight="600" fill="#1e293b">' +
         esc(n.tpl.name) + '</text>' +
-        '<text x="' + (n.x + 16) + '" y="' + (n.y + 40) + '" font-size="10" fill="#94a3b8">掌握度 ' +
-        Math.round(n.mastery * 100) + '%</text></g>';
+        '<text x="' + (n.x + 16) + '" y="' + (n.y + 36) + '" font-size="10" fill="#94a3b8">掌握度 ' +
+        Math.round(n.mastery * 100) + '%</text>' +
+        '<rect x="' + (n.x + 16) + '" y="' + (n.y + layout.nodeH - 12) + '" width="' + barW +
+        '" height="4" rx="2" fill="#eef2f7"/>' +
+        '<rect x="' + (n.x + 16) + '" y="' + (n.y + layout.nodeH - 12) + '" width="' + (barW * n.mastery).toFixed(1) +
+        '" height="4" rx="2" fill="' + color + '"/></g>';
     }).join('');
     var legend = '<div class="graph-legend">' +
       [['#94a3b8', '未接触'], ['#d97706', '初步'], ['#4f46e5', '进阶'], ['#0d9488', '熟练']]
