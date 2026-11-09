@@ -22,6 +22,11 @@
       "items": { "type": "string" },
       "description": "先修概念的模板 id 列表，供 TTK.Graph 建图谱与卡点推荐。填不存在的 id 会被图谱忽略。"
     },
+    "source": {
+      "type": "string",
+      "enum": ["local-draft", "llm"],
+      "description": "模板来源标记，可省。llm 表示模型输出（可落盘），local-draft 表示本地草稿（不落盘）。"
+    },
     "x": {
       "type": "object",
       "required": ["min", "max"],

@@ -27,7 +27,7 @@
 生成代理未配置时，未收录概念只给本地草稿（不是 AI 生成、刷新不保留）；配置后由服务端调用模型，
 模型模板会落盘并在刷新后恢复，本地草稿仍不落盘。
 
-校验基线：`npm test` **350 项**、`npm run api:smoke` **40 项**、`npm run api:browser` **37 项**、
+校验基线：`npm test` **363 项**、`npm run api:smoke` **40 项**、`npm run api:browser` **37 项**、
 `npm run check:browser` **18 项**（真实 Canvas 模拟验收）、`npm run check:anon` PASS
 （`npm run check` = test + api:smoke + check:anon；浏览器类脚本单独跑）。
 

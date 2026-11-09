@@ -14,6 +14,22 @@
   function isNum(v) { return typeof v === 'number' && isFinite(v); }
   function arr(v) { return Array.isArray(v) ? v : []; }
 
+  /* TemplateSpec 顶层字段表（与 contracts/template.schema.json 的 properties 同步）。
+   * 落盘 / 导出 / 校验三处共用这一份，防止模型输出夹带契约外字段进入存储与「匿名」导出。 */
+  var SPEC_KEYS = {
+    id: 1, name: 1, subject: 1, icon: 1, brief: 1, concept: 1, keywords: 1,
+    prerequisites: 1, source: 1, x: 1, params: 1, series: 1, metrics: 1,
+    challenges: 1, insight: 1
+  };
+  function pick(spec) {
+    var out = {};
+    if (!spec || typeof spec !== 'object') return out;
+    Object.keys(SPEC_KEYS).forEach(function (k) {
+      if (spec[k] !== undefined) out[k] = spec[k];
+    });
+    return out;
+  }
+
   var example = {
     id: 'spring',
     name: '弹簧振子',
@@ -78,22 +94,34 @@
       if (!r.ok) errors.push(tag + '：' + r.error);
       bucket.push(r.ok ? r.fn : function () { return NaN; });
     }
+    var STYLE_WORDS = ['line', 'dashed', 'area', 'scatter', 'bar'];
+    var SOURCE_WORDS = ['local-draft', 'llm']; // 与 template.schema.json 的 source 枚举同步
     var series = arr(spec.series);
     if (series.length < 1 || series.length > 4) errors.push('series 需 1-4 条曲线');
     series.forEach(function (s, i) {
       if (!s || !isStr(s.name, 30)) errors.push('series[' + i + '].name 必填');
       if (s && s.color && !/^#[0-9a-fA-F]{6}$/.test(s.color)) errors.push('series[' + i + '].color 需为 #rrggbb');
+      if (s && s.style !== undefined && STYLE_WORDS.indexOf(s.style) < 0) {
+        errors.push('series[' + i + '].style 需为 ' + STYLE_WORDS.join(' / '));
+      }
       checkExpr(s ? s.expr : '', 'series[' + i + '].expr', fns.series);
     });
-    arr(spec.metrics).slice(0, 5).forEach(function (mt, i) {
+    var metrics = arr(spec.metrics);
+    if (metrics.length > 5) errors.push('metrics 最多 5 条（当前 ' + metrics.length + ' 条）');
+    metrics.slice(0, 5).forEach(function (mt, i) {
       if (!mt || !isStr(mt.label, 30)) errors.push('metrics[' + i + '].label 必填');
       checkExpr(mt ? mt.expr : '', 'metrics[' + i + '].expr', fns.metrics);
     });
-    arr(spec.challenges).slice(0, 3).forEach(function (c, i) {
+    var challenges = arr(spec.challenges);
+    if (challenges.length > 3) errors.push('challenges 最多 3 条（当前 ' + challenges.length + ' 条）');
+    challenges.slice(0, 3).forEach(function (c, i) {
       if (!c || !isStr(c.text, 80)) errors.push('challenges[' + i + '].text 必填');
       checkExpr(c ? c.expr : '', 'challenges[' + i + '].expr', fns.challenges);
     });
     if (spec.insight !== undefined && typeof spec.insight !== 'string') errors.push('insight 需为字符串');
+    if (spec.source !== undefined && SOURCE_WORDS.indexOf(spec.source) < 0) {
+      errors.push('source 需为 ' + SOURCE_WORDS.join(' / ') + '，或不填');
+    }
     return { ok: errors.length === 0, errors: errors, fns: fns, samples: samples };
   }
 
@@ -262,6 +290,8 @@
   TTK.dsl = {
     palette: palette,
     example: example,
+    specKeys: SPEC_KEYS,
+    pick: pick,
     validate: validate,
     validateResult: validateResult,
     compile: compile,

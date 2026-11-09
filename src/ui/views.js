@@ -248,6 +248,12 @@
     events: 1, progress: 1, stuck: 1, customTemplates: 1
   };
   var EVENT_KEYS = { at: 1, tpl: 1, name: 1, reason: 1, params: 1, insight: 1 };
+  // TemplateSpec 顶层字段白名单：与 dsl.js 的 specKeys / template.schema.json 同一份，不单独维护。
+  var TEMPLATE_KEYS = (TTK.dsl && TTK.dsl.specKeys) || {
+    id: 1, name: 1, subject: 1, icon: 1, brief: 1, concept: 1, keywords: 1,
+    prerequisites: 1, x: 1, params: 1, series: 1, metrics: 1, challenges: 1,
+    insight: 1, source: 1
+  };
 
   function downloadJson(text, filename) {
     // 任何环境都保留一份可复制的文本；能下载时再走 Blob + a[download]。
@@ -279,7 +285,14 @@
     var badEvent = (obj.events || []).some(function (e) {
       return Object.keys(e).some(function (k) { return !EVENT_KEYS[k]; });
     });
-    if (extra.length || badEvent) {
+    // customTemplates 每个元素也过顶层白名单：模板是用户 / 模型产出的自由 JSON，
+    // 不查就会夹带契约外字段（如姓名、设备信息）进入「匿名」导出。
+    var custom = Array.isArray(obj.customTemplates) ? obj.customTemplates : [];
+    var badTpl = custom.length > 50 || custom.some(function (t) {
+      if (!t || typeof t !== 'object' || Array.isArray(t)) return true;
+      return Object.keys(t).some(function (k) { return !TEMPLATE_KEYS[k]; });
+    });
+    if (extra.length || badEvent || badTpl) {
       reportNotice = { text: '导出已阻止：出现契约外字段（' + extra.join(', ') + '），可能夹带可识别信息', kind: 'bad' };
       rerender();
       return null;

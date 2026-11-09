@@ -44,14 +44,19 @@
 
   /* ---------------- #I3：自定义模板在刷新后恢复 ---------------- */
   // 工坊保存的是纯 TemplateSpec（ttk.custom.v1），启动时统一走 dsl 校验 + 编译再注册。
-  // 坏数据只跳过，不阻断双击运行；已挂载的 id 不会重复注册（幂等，测试可再调一次）。
+  // 坏数据只跳过，不阻断双击运行；内置 id 永不覆盖；自定义 id 重复时先卸载再注册，
+  // 这样导入同 id 的新版模板立即生效，不用刷新（测试可再调一次，幂等）。
   function restoreCustomTemplates() {
     var list = data.custom();
     if (!Array.isArray(list)) return 0;
+    var builtin = builtinIds();
     var loaded = 0;
     list.forEach(function (spec) {
       if (!spec || typeof spec !== 'object' || !spec.id) return;
-      if (engine.get(spec.id)) { loaded++; return; }
+      if (engine.get(spec.id)) {
+        if (builtin[spec.id]) return; // 撞内置模板：跳过，不覆盖 10 个精修概念
+        try { engine.unregister(spec.id); } catch (e) { return; }
+      }
       var v;
       try { v = TTK.dsl.validate(spec, []); } catch (e) { return; }
       if (!v.ok) return;
@@ -133,7 +138,8 @@
   function saveGeneratedTemplate(spec) {
     if (!spec || !spec.id || builtinIds()[spec.id]) return false; // 不覆盖 10 个精修模板
     var clean;
-    try { clean = JSON.parse(JSON.stringify(spec)); } catch (e) { return false; }
+    try { clean = JSON.parse(JSON.stringify(TTK.dsl.pick(spec))); } catch (e) { return false; }
+    if (!clean.id) return false;
     var list = (data.custom() || []).filter(function (s) { return s && s.id !== clean.id; });
     list.push(clean);
     data.saveCustom(list);

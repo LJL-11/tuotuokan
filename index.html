@@ -149,8 +149,8 @@
     <div class="sync-box">
       <h3>AI 生成代理（可选）</h3>
       <p id="genHint" class="sync-hint">默认不配代理：未收录概念只给本地草稿（不是 AI 生成，刷新不保留）。填入服务地址后由服务端调用模型，模型密钥只放服务端，前端不携带、不输入。</p>
-      <label class="sync-label" for="genEndpoint">服务地址（POST /generate）</label>
-      <input id="genEndpoint" class="sync-input" type="url" autocomplete="off" placeholder="http://127.0.0.1:8787/generate">
+      <label class="sync-label" for="genEndpoint">服务地址（POST /v1/generate）</label>
+      <input id="genEndpoint" class="sync-input" type="url" autocomplete="off" placeholder="http://127.0.0.1:8787/v1/generate">
       <label class="sync-label" for="genModel">模型名（由服务端约定）</label>
       <input id="genModel" class="sync-input" type="text" autocomplete="off" maxlength="60" placeholder="留空则由服务端决定">
       <div class="sync-actions">

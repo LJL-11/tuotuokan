@@ -1176,6 +1176,80 @@ function runLeadRepay() {
   ok('#19/#21 文档不再把生成链路写成「只在内存 / 骨架」',
     doc1.indexOf('生成模板只在内存里') < 0 && doc2.indexOf('生成的模板只在内存里') < 0, '');
 
+  /* --- 11-09 补充验收：placeholder 路径 / 同 id 导入更新 / 导出白名单 / dsl 校验加严 --- */
+  ok('#19 服务地址 placeholder 与服务端 /v1 前缀一致',
+    html16.indexOf('http://127.0.0.1:8787/v1/generate') >= 0 &&
+    html16.indexOf('POST /v1/generate') >= 0 &&
+    read('services/api/README.md').indexOf('/v1/generate') >= 0, '');
+
+  var updated16 = JSON.parse(JSON.stringify(probe16));
+  updated16.name = '代理生成探针 v2';
+  var importUpdate16 = TTK.views.importReport(JSON.stringify({
+    schema: 'ttk.learning-trace.v1', events: [], progress: {}, stuck: [],
+    customTemplates: [updated16]
+  }));
+  ok('#21 导入同 id 新版模板立即更新（先卸载再挂载，不用刷新）',
+    importUpdate16 === true && !!TTK.engine.get('repay_llm_probe') &&
+    TTK.engine.get('repay_llm_probe').name === '代理生成探针 v2', '');
+  var builtinName16 = TTK.engine.get(builtin16.id).name;
+  TTK.views.importReport(JSON.stringify({
+    schema: 'ttk.learning-trace.v1', events: [], progress: {}, stuck: [],
+    customTemplates: [Object.assign({}, probe16, { id: builtin16.id, name: '冒名内置' })]
+  }));
+  ok('#21 导入撞内置 id 仍不覆盖精修模板',
+    TTK.engine.get(builtin16.id).name === builtinName16, '');
+  ok('#21 同 id 更新源码走 unregister 且内置受保护',
+    app16.indexOf('engine.unregister(spec.id)') >= 0 &&
+    app16.indexOf('builtin[spec.id]') >= 0, '');
+
+  D.saveCustom([Object.assign({}, probe16, { author: '张三', school: '某大学' })]);
+  var blocked16 = TTK.views.exportReport();
+  ok('#21 导出白名单拦截 customTemplates 契约外字段（防夹带可识别信息）',
+    blocked16 === null, '');
+  D.saveCustom([probe16]);
+  ok('#21 白名单字段内的模板正常导出', TTK.views.exportReport() !== null, '');
+  var dirty16 = Object.assign({}, probe16, { id: 'repay_dirty_probe', author: '李四' });
+  TTK.app.saveGenerated(dirty16);
+  ok('#21 落盘前经 dsl.pick 清洗契约外字段（模型输出不夹带进存储与导出）',
+    D.custom().some(function (s) { return s && s.id === 'repay_dirty_probe' && s.author === undefined; }) &&
+    JSON.stringify(D.custom()).indexOf('李四') < 0, '');
+  D.saveCustom(D.custom().filter(function (s) { return s && s.id !== 'repay_dirty_probe'; }));
+
+  var strict16 = JSON.parse(read('contracts/examples/spring.json'));
+  strict16.id = 'strict_probe';
+  strict16.series[0] = Object.assign({}, strict16.series[0], { style: 'bold' });
+  ok('dsl 非法 style 报错（对齐 template.schema.json 枚举）',
+    TTK.dsl.validate(strict16, []).ok === false, '');
+  var strictMetrics16 = JSON.parse(read('contracts/examples/spring.json'));
+  strictMetrics16.id = 'strict_m';
+  strictMetrics16.metrics = [0, 1, 2, 3, 4, 5].map(function (i) {
+    return { label: 'm' + i, expr: String(i) };
+  });
+  ok('dsl metrics 超过 5 条报错（不再静默截断）',
+    TTK.dsl.validate(strictMetrics16, []).ok === false, '');
+  var strictCh16 = JSON.parse(read('contracts/examples/spring.json'));
+  strictCh16.id = 'strict_c';
+  strictCh16.challenges = [0, 1, 2, 3].map(function (i) {
+    return { text: 'c' + i, expr: String(i) + ' > 0' };
+  });
+  ok('dsl challenges 超过 3 条报错（不再静默截断）',
+    TTK.dsl.validate(strictCh16, []).ok === false, '');
+  var strictSrc16 = JSON.parse(read('contracts/examples/spring.json'));
+  strictSrc16.id = 'strict_s';
+  strictSrc16.source = 'someone-typed-this';
+  ok('dsl 非法 source 枚举报错',
+    TTK.dsl.validate(strictSrc16, []).ok === false, '');
+  var legalSrc16 = JSON.parse(read('contracts/examples/spring.json'));
+  legalSrc16.id = 'strict_ok';
+  legalSrc16.source = 'llm';
+  ok('dsl 合法 source 枚举与 style 通过',
+    TTK.dsl.validate(legalSrc16, []).ok === true, '');
+  ok('schema 已声明可选 source 字段（contracts 四处同步）',
+    read('contracts/template.schema.json').indexOf('"source"') >= 0 &&
+    doc1.indexOf('枚举 `local-draft` / `llm`') >= 0, '');
+
+  D.saveCustom([]);
+
   global.fetch = prevFetch16;
 }
 
